@@ -1,3 +1,7 @@
+# Stores app secret etc, do not commit
+credentials.py
+
+################ Default .gitignore from Github repo creation ################
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

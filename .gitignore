@@ -1,6 +1,9 @@
 # Stores app secret etc, do not commit
 credentials.py
 
+# The snapshots repo shouldn't be committed with the sourcecode
+spotify-snapshots-repo/
+
 ################ Default .gitignore from Github repo creation ################
 # Byte-compiled / optimized / DLL files
 __pycache__/

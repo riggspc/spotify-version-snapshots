@@ -18,6 +18,11 @@ API_REQUEST_SLEEP_TIME_SEC = 0.5
 # - General things to support podcasts instead of just music tracks (default
 #   for most of these API requests/return data)
 # - Support for "added by" in playlist contents snapshot (not that hard)
+# - Consider using "next" return param to determine if there's more to fetch
+#   in all of the fetch methods (similar to example here - https://github.com/plamere/spotipy/blob/master/examples/user_playlists_contents.py)
+# - Make commit message for the snapshots be meaningful
+# - Params/args to this script to determine if the script commits changed 
+#   snapshot files, pushes to a remote repo, and maybe other configurables
 
 
 def get_saved_tracks(sp_client: Spotify) -> dict:

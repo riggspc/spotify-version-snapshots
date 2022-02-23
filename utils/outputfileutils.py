@@ -2,6 +2,17 @@ import csv
 
 from typing import Callable
 
+TRACK_HEADER_ROW = ["TRACK NAME", "TRACK ARTIST(S)", "ALBUM", "DATE ADDED", "TRACK ID"]
+ALBUM_HEADER_ROW = ["ALBUM NAME", "ALBUM ARTIST(S)", "DATE ADDED", "ALBUM ID"]
+PLAYLIST_HEADER_ROW = [
+    "PLAYLIST NAME",
+    "PLAYLIST DESCRIPTION",
+    "LENGTH",
+    "OWNER",
+    "COLLABORATIVE",
+    "PLAYLIST ID",
+]
+
 # Takes in a dict of dicts (data), sorts into a list based on sort_key for each
 # dict, and then outputs each item to the file specified. Overwrites any such
 # existing file.
@@ -21,6 +32,7 @@ def write_to_file(
         tsv_writer = csv.writer(out_file, delimiter="\t")
         tsv_writer.writerows(output_rows)
 
+
 def track_to_row(item) -> list:
     track_obj = item["track"]
     return [
@@ -39,4 +51,15 @@ def album_to_row(item) -> list:
         ", ".join(map(lambda artist: artist["name"], album_obj["artists"])),
         item["added_at"],
         album_obj["id"],
+    ]
+
+
+def playlist_to_row(item) -> list:
+    return [
+        item["name"],
+        item["description"],
+        item["tracks"]["total"],
+        item["owner"]["id"],
+        item["collaborative"],
+        item["id"],
     ]

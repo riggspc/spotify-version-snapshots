@@ -1,4 +1,5 @@
 import csv
+import os
 
 from typing import Callable
 
@@ -15,7 +16,7 @@ PLAYLIST_HEADER_ROW = [
 
 # Takes in a dict of dicts (data), sorts into a list based on sort_key for each
 # dict, and then outputs each item to the file specified. Overwrites any such
-# existing file.
+# existing file. Will create directories if needed.
 def write_to_file(
     data: dict,
     sort_lambda: Callable,
@@ -23,6 +24,9 @@ def write_to_file(
     header_row: list[str],
     output_filename: str,
 ) -> None:
+    # Make sure the dirs in the filepath exist, create if needed
+    os.makedirs(os.path.dirname(output_filename), exist_ok=True)
+
     sorted_list = sorted(list(data.values()), key=sort_lambda)
     output_rows = [header_row]
     for item in sorted_list:

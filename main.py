@@ -17,6 +17,7 @@ API_REQUEST_SLEEP_TIME_SEC = 0.5
 # - Turn print statements into real (and higher quality) logging
 # - General things to support podcasts instead of just music tracks (default
 #   for most of these API requests/return data)
+# - Support for "added by" in playlist contents snapshot (not that hard)
 
 
 def get_saved_tracks(sp_client: Spotify) -> dict:
@@ -44,6 +45,38 @@ def get_saved_tracks(sp_client: Spotify) -> dict:
         time.sleep(API_REQUEST_SLEEP_TIME_SEC)
 
     return saved_tracks
+
+
+def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
+    # Can only get 50 tracks at a time, iterate through the playlist until
+    # we've got them all
+    limit = 50
+    offset = 0
+    playlist_tracks = {}
+    while True:
+        results = sp_client.playlist_tracks(
+            playlist_id=playlist["id"],
+            fields="items(added_at,added_by.id,track(name,id,artists(name),album(name,id)))",
+            limit=limit,
+            offset=offset,
+        )
+        result_items = results["items"]
+        print(f"Fetched {len(result_items)} tracks from playlist {playlist['name']}")
+
+        # result_items is a list. Add them to the playlist_tracks dict by track ID
+        # to prevent duplicated tracks appearing if the playlist was added to
+        # while being fetched
+        for item in result_items:
+            playlist_tracks[item["track"]["id"]] = item
+
+        if len(result_items) is not limit:
+            break
+        offset += limit
+
+        # Prevent rate limiting. Maybe not needed, playing it safe for now
+        time.sleep(API_REQUEST_SLEEP_TIME_SEC)
+
+    return playlist_tracks
 
 
 def get_saved_albums(sp_client: Spotify) -> dict:
@@ -122,7 +155,7 @@ def main():
         sort_lambda=lambda item: item["added_at"],
         header_row=outputfileutils.TRACK_HEADER_ROW,
         item_to_row_lambda=outputfileutils.track_to_row,
-        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/saved_tracks",
+        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/saved_tracks.tsv",
     )
     print(f"Wrote {len(saved_tracks)} tracks to file")
 
@@ -132,7 +165,7 @@ def main():
         sort_lambda=lambda item: item["added_at"],
         header_row=outputfileutils.ALBUM_HEADER_ROW,
         item_to_row_lambda=outputfileutils.album_to_row,
-        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/saved_albums",
+        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/saved_albums.tsv",
     )
     print(f"Wrote {len(saved_albums)} albums to file")
 
@@ -148,8 +181,19 @@ def main():
         sort_lambda=lambda item: item["id"],
         header_row=outputfileutils.PLAYLIST_HEADER_ROW,
         item_to_row_lambda=outputfileutils.playlist_to_row,
-        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/playlists",
+        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/playlists.tsv",
     )
+
+    # Snapshot the contents of each playlist too
+    for playlist in playlists.values():
+        playlist_tracks = get_tracks_from_playlist(sp_client, playlist)
+        outputfileutils.write_to_file(
+            data=playlist_tracks,
+            sort_lambda=lambda item: item["added_at"],
+            header_row=outputfileutils.TRACK_HEADER_ROW,
+            item_to_row_lambda=outputfileutils.track_to_row,
+            output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/playlists/{playlist['name']} ({playlist['id']}).tsv",
+        )
 
     gitutils.commit_files()
 

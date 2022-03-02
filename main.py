@@ -18,10 +18,9 @@ API_REQUEST_SLEEP_TIME_SEC = 0.5
 # - General things to support podcasts instead of just music tracks (default
 #   for most of these API requests/return data)
 # - Support for "added by" in playlist contents snapshot (not that hard)
-# - Consider using "next" return param to determine if there's more to fetch
 #   in all of the fetch methods (similar to example here - https://github.com/plamere/spotipy/blob/master/examples/user_playlists_contents.py)
 # - Make commit message for the snapshots be meaningful
-# - Params/args to this script to determine if the script commits changed 
+# - Params/args to this script to determine if the script commits changed
 #   snapshot files, pushes to a remote repo, and maybe other configurables
 
 
@@ -29,10 +28,10 @@ def get_saved_tracks(sp_client: Spotify) -> dict:
     # Can only get 50 tracks at a time, iterate through the library until we've
     # got them all
     limit = 50
-    offset = 0
     saved_tracks = {}
+    results = sp_client.current_user_saved_tracks(limit)
+
     while True:
-        results = sp_client.current_user_saved_tracks(limit, offset)
         result_items = results["items"]
         print(f"Fetched {len(result_items)} tracks")
 
@@ -42,12 +41,12 @@ def get_saved_tracks(sp_client: Spotify) -> dict:
         for item in result_items:
             saved_tracks[item["track"]["id"]] = item
 
-        if len(result_items) is not limit:
+        if results["next"]:
+            # Prevent rate limiting. Maybe not needed, playing it safe for now
+            time.sleep(API_REQUEST_SLEEP_TIME_SEC)
+            results = sp_client.next(results)
+        else:
             break
-        offset += limit
-
-        # Prevent rate limiting. Maybe not needed, playing it safe for now
-        time.sleep(API_REQUEST_SLEEP_TIME_SEC)
 
     return saved_tracks
 
@@ -56,15 +55,14 @@ def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
     # Can only get 50 tracks at a time, iterate through the playlist until
     # we've got them all
     limit = 50
-    offset = 0
     playlist_tracks = {}
+    results = sp_client.playlist_tracks(
+        playlist_id=playlist["id"],
+        fields="items(added_at,added_by.id,track(name,id,artists(name),album(name,id))),next",
+        limit=limit,
+    )
+
     while True:
-        results = sp_client.playlist_tracks(
-            playlist_id=playlist["id"],
-            fields="items(added_at,added_by.id,track(name,id,artists(name),album(name,id)))",
-            limit=limit,
-            offset=offset,
-        )
         result_items = results["items"]
         print(f"Fetched {len(result_items)} tracks from playlist {playlist['name']}")
 
@@ -74,12 +72,12 @@ def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
         for item in result_items:
             playlist_tracks[item["track"]["id"]] = item
 
-        if len(result_items) is not limit:
+        if results["next"]:
+            # Prevent rate limiting. Maybe not needed, playing it safe for now
+            time.sleep(API_REQUEST_SLEEP_TIME_SEC)
+            results = sp_client.next(results)
+        else:
             break
-        offset += limit
-
-        # Prevent rate limiting. Maybe not needed, playing it safe for now
-        time.sleep(API_REQUEST_SLEEP_TIME_SEC)
 
     return playlist_tracks
 
@@ -88,10 +86,10 @@ def get_saved_albums(sp_client: Spotify) -> dict:
     # Can only get 50 albums at a time, iterate through the library until we've
     # got them all
     limit = 50
-    offset = 0
     saved_albums = {}
+    results = sp_client.current_user_saved_albums(limit)
+
     while True:
-        results = sp_client.current_user_saved_albums(limit, offset)
         result_items = results["items"]
         print(f"Fetched {len(result_items)} albums")
 
@@ -101,12 +99,12 @@ def get_saved_albums(sp_client: Spotify) -> dict:
         for item in result_items:
             saved_albums[item["album"]["id"]] = item
 
-        if len(result_items) is not limit:
+        if results["next"]:
+            # Prevent rate limiting. Maybe not needed, playing it safe for now
+            time.sleep(API_REQUEST_SLEEP_TIME_SEC)
+            results = sp_client.next(results)
+        else:
             break
-        offset += limit
-
-        # Prevent rate limiting. Maybe not needed, playing it safe for now
-        time.sleep(API_REQUEST_SLEEP_TIME_SEC)
 
     return saved_albums
 
@@ -115,10 +113,10 @@ def get_playlists(sp_client: Spotify) -> dict:
     # Can only get 50 playlists at a time, iterate through the library until
     # we've got them all
     limit = 50
-    offset = 0
     saved_playlists = {}
+    results = sp_client.current_user_playlists(limit)
+
     while True:
-        results = sp_client.current_user_playlists(limit, offset)
         result_items = results["items"]
         print(f"Fetched {len(result_items)} playlists")
 
@@ -128,12 +126,12 @@ def get_playlists(sp_client: Spotify) -> dict:
         for item in result_items:
             saved_playlists[item["id"]] = item
 
-        if len(result_items) is not limit:
+        if results["next"]:
+            # Prevent rate limiting. Maybe not needed, playing it safe for now
+            time.sleep(API_REQUEST_SLEEP_TIME_SEC)
+            results = sp_client.next(results)
+        else:
             break
-        offset += limit
-
-        # Prevent rate limiting. Maybe not needed, playing it safe for now
-        time.sleep(API_REQUEST_SLEEP_TIME_SEC)
 
     return saved_playlists
 

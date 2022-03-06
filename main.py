@@ -70,7 +70,12 @@ def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
         # to prevent duplicated tracks appearing if the playlist was added to
         # while being fetched
         for item in result_items:
-            playlist_tracks[item["track"]["id"]] = item
+            track = item["track"]
+            if track is None:
+                # Not sure why this happens but it can (see KEXP Song Of The 
+                # Day 2021 playlist, id 6kImtfS73NEoA0CKe7Z4q4)
+                continue
+            playlist_tracks[track["id"]] = item
 
         if results["next"]:
             # Prevent rate limiting. Maybe not needed, playing it safe for now

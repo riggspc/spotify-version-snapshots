@@ -177,7 +177,7 @@ def main():
     saved_tracks = get_saved_tracks(sp_client)
     outputfileutils.write_to_file(
         data=saved_tracks,
-        sort_lambda=lambda item: item["added_at"],
+        sort_lambda=lambda item: (item["added_at"], item["track"]["id"]),
         header_row=outputfileutils.TRACK_HEADER_ROW,
         item_to_row_lambda=outputfileutils.track_to_row,
         output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/saved_tracks.tsv",
@@ -187,7 +187,7 @@ def main():
     saved_albums = get_saved_albums(sp_client)
     outputfileutils.write_to_file(
         data=saved_albums,
-        sort_lambda=lambda item: item["added_at"],
+        sort_lambda=lambda item: (item["added_at"], item["album"]["id"]),
         header_row=outputfileutils.ALBUM_HEADER_ROW,
         item_to_row_lambda=outputfileutils.album_to_row,
         output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/saved_albums.tsv",
@@ -215,7 +215,7 @@ def main():
         escaped_playlist_name = playlist["name"].replace("/", "\u2215")
         outputfileutils.write_to_file(
             data=playlist_tracks,
-            sort_lambda=lambda item: item["added_at"],
+            sort_lambda=lambda item: (item["added_at"], item["track"]["id"]),
             header_row=outputfileutils.TRACK_HEADER_ROW,
             item_to_row_lambda=outputfileutils.track_to_row,
             # Note that the playlist name needs to have slashes replaced with

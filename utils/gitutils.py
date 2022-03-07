@@ -2,8 +2,12 @@ import git
 from datetime import datetime
 
 from git import NoSuchPathError, Commit
+from main import TEST_MODE
 
-SNAPSHOTS_REPO_NAME = "spotify-snapshots-repo"
+if TEST_MODE:
+    SNAPSHOTS_REPO_NAME = "TEST-REPO"
+else:
+    SNAPSHOTS_REPO_NAME = "spotify-snapshots-repo"
 
 
 def setup_git_repo_if_needed() -> None:

@@ -1,8 +1,9 @@
 # Stores app secret etc, do not commit
 credentials.py
 
-# The snapshots repo shouldn't be committed with the sourcecode
+# The snapshots repo (and test repo) shouldn't be committed with the sourcecode
 spotify-snapshots-repo/
+TEST-REPO/
 
 # Junk files
 .DS_Store

@@ -10,6 +10,9 @@ from credentials import CLIENT_ID, CLIENT_SECRET
 
 API_REQUEST_SLEEP_TIME_SEC = 0.5
 
+TEST_MODE = True
+
+
 # General TODOs:
 # - Error handling
 # - Refactor fetch code to share more logic
@@ -23,6 +26,7 @@ API_REQUEST_SLEEP_TIME_SEC = 0.5
 #   something (eg. X playlists changed, Y changes to your library, etc)
 # - Params/args to this script to determine if the script commits changed
 #   snapshot files, pushes to a remote repo, and maybe other configurables
+# - Have "test mode" be a passed in param to the script, not a hardcoded bool
 
 
 def get_saved_tracks(sp_client: Spotify) -> dict:
@@ -47,6 +51,9 @@ def get_saved_tracks(sp_client: Spotify) -> dict:
             time.sleep(API_REQUEST_SLEEP_TIME_SEC)
             results = sp_client.next(results)
         else:
+            break
+
+        if TEST_MODE:
             break
 
     return saved_tracks
@@ -85,6 +92,9 @@ def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
         else:
             break
 
+        if TEST_MODE:
+            break
+
     return playlist_tracks
 
 
@@ -112,6 +122,9 @@ def get_saved_albums(sp_client: Spotify) -> dict:
         else:
             break
 
+        if TEST_MODE:
+            break
+
     return saved_albums
 
 
@@ -137,6 +150,9 @@ def get_playlists(sp_client: Spotify) -> dict:
             time.sleep(API_REQUEST_SLEEP_TIME_SEC)
             results = sp_client.next(results)
         else:
+            break
+
+        if TEST_MODE:
             break
 
     return saved_playlists

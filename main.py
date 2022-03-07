@@ -38,7 +38,7 @@ def get_saved_tracks(sp_client: Spotify) -> dict:
 
     while True:
         result_items = results["items"]
-        print(f"Fetched {len(result_items)} tracks")
+        print(f"Fetched {len(result_items)} tracks (pg {results['offset'] // limit})")
 
         # result_items is a list. Add them to the saved_tracks dict by track ID
         # to prevent duplicated tracks appearing if the library was added to
@@ -66,13 +66,13 @@ def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
     playlist_tracks = {}
     results = sp_client.playlist_tracks(
         playlist_id=playlist["id"],
-        fields="items(added_at,added_by.id,track(name,id,artists(name),album(name,id))),next",
+        fields="items(added_at,added_by.id,track(name,id,artists(name),album(name,id))),next,offset",
         limit=limit,
     )
 
     while True:
         result_items = results["items"]
-        print(f"Fetched {len(result_items)} tracks from playlist {playlist['name']}")
+        print(f"Fetched {len(result_items)} tracks from playlist {playlist['name']} (pg {results['offset'] // limit})")
 
         # result_items is a list. Add them to the playlist_tracks dict by track ID
         # to prevent duplicated tracks appearing if the playlist was added to
@@ -107,7 +107,7 @@ def get_saved_albums(sp_client: Spotify) -> dict:
 
     while True:
         result_items = results["items"]
-        print(f"Fetched {len(result_items)} albums")
+        print(f"Fetched {len(result_items)} albums (pg {results['offset'] // limit})")
 
         # result_items is a list. Add them to the saved_albums dict by album ID
         # to prevent duplicated albums appearing if the library was added to
@@ -137,7 +137,7 @@ def get_playlists(sp_client: Spotify) -> dict:
 
     while True:
         result_items = results["items"]
-        print(f"Fetched {len(result_items)} playlists")
+        print(f"Fetched {len(result_items)} playlists (pg {results['offset'] // limit})")
 
         # result_items is a list. Add them to the saved_playlists dict by album
         # ID to prevent duplicated playlists appearing if new playlists were

@@ -17,8 +17,6 @@ PLAYLIST_HEADER_ROW = [
 # Takes in a dict of dicts (data), sorts into a list based on sort_key for each
 # dict, and then outputs each item to the file specified. Overwrites any such
 # existing file. Will create directories if needed.
-# TODO: something in this function is breaking for playlists that have slashes
-# in the name
 def write_to_file(
     data: dict,
     sort_lambda: Callable,

@@ -19,7 +19,8 @@ API_REQUEST_SLEEP_TIME_SEC = 0.5
 #   for most of these API requests/return data)
 # - Support for "added by" in playlist contents snapshot (not that hard)
 #   in all of the fetch methods (similar to example here - https://github.com/plamere/spotipy/blob/master/examples/user_playlists_contents.py)
-# - Make commit message for the snapshots be meaningful
+# - Make commit message for the snapshots be meaningful, with delta stats or
+#   something (eg. X playlists changed, Y changes to your library, etc)
 # - Params/args to this script to determine if the script commits changed
 #   snapshot files, pushes to a remote repo, and maybe other configurables
 
@@ -72,7 +73,7 @@ def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
         for item in result_items:
             track = item["track"]
             if track is None:
-                # Not sure why this happens but it can (see KEXP Song Of The 
+                # Not sure why this happens but it can (see KEXP Song Of The
                 # Day 2021 playlist, id 6kImtfS73NEoA0CKe7Z4q4)
                 continue
             playlist_tracks[track["id"]] = item

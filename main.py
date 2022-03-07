@@ -196,12 +196,15 @@ def main():
     # Snapshot the contents of each playlist too
     for playlist in playlists.values():
         playlist_tracks = get_tracks_from_playlist(sp_client, playlist)
+        escaped_playlist_name = playlist["name"].replace("/", "\u2215")
         outputfileutils.write_to_file(
             data=playlist_tracks,
             sort_lambda=lambda item: item["added_at"],
             header_row=outputfileutils.TRACK_HEADER_ROW,
             item_to_row_lambda=outputfileutils.track_to_row,
-            output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/playlists/{playlist['name']} ({playlist['id']}).tsv",
+            # Note that the playlist name needs to have slashes replaced with
+            # a Unicode character that looks just like a slash
+            output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/playlists/{escaped_playlist_name} ({playlist['id']}).tsv",
         )
 
     gitutils.commit_files()

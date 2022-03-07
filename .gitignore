@@ -4,6 +4,9 @@ credentials.py
 # The snapshots repo shouldn't be committed with the sourcecode
 spotify-snapshots-repo/
 
+# Junk files
+.DS_Store
+
 ################ Default .gitignore from Github repo creation ################
 # Byte-compiled / optimized / DLL files
 __pycache__/

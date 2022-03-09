@@ -19,7 +19,6 @@ TEST_MODE = True
 # - Turn print statements into real (and higher quality) logging
 # - General things to support podcasts instead of just music tracks (default
 #   for most of these API requests/return data)
-# - Support for "added by" in playlist contents snapshot (not that hard)
 # - Params/args to this script to determine if the script commits changed
 #   snapshot files, pushes to a remote repo, and maybe other configurables
 # - Have "test mode" be a passed in param to the script, not a hardcoded bool
@@ -74,7 +73,7 @@ def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
     playlist_tracks = {}
     results = sp_client.playlist_tracks(
         playlist_id=playlist["id"],
-        fields="items(added_at,added_by.id,track(name,id,artists(name),album(name,id))),next,offset",
+        fields="items(added_at,added_by(id),track(name,id,artists(name),album(name,id))),next,offset",
         limit=limit,
     )
 
@@ -224,8 +223,8 @@ def main():
         outputfileutils.write_to_file(
             data=playlist_tracks,
             sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),
-            header_row=outputfileutils.TRACK_HEADER_ROW,
-            item_to_row_lambda=outputfileutils.track_to_row,
+            header_row=outputfileutils.TRACK_IN_PLAYLIST_HEADER_ROW,
+            item_to_row_lambda=outputfileutils.playlist_track_to_row,
             # Note that the playlist name needs to have slashes replaced with
             # a Unicode character that looks just like a slash
             output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/playlists/{escaped_playlist_name} ({playlist['id']}).tsv",

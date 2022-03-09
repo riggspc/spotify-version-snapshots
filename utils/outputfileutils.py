@@ -13,6 +13,11 @@ PLAYLIST_HEADER_ROW = [
     "COLLABORATIVE",
     "PLAYLIST ID",
 ]
+TRACK_IN_PLAYLIST_HEADER_ROW = [
+    *TRACK_HEADER_ROW[:-1],
+    "ADDED BY",
+    *TRACK_HEADER_ROW[-1:],
+]
 
 # Takes in a dict of dicts (data), sorts into a list based on sort_key for each
 # dict, and then outputs each item to the file specified. Overwrites any such
@@ -46,6 +51,15 @@ def track_to_row(item) -> list:
         item["added_at"],
         track_obj["id"],
     ]
+
+def playlist_track_to_row(item) -> list:
+    track_row = track_to_row(item)
+    added_by_id = item["added_by"]["id"]
+    if added_by_id == '':
+        # This has come up in debugging with Spotify owned ("official") playlists,
+        # presumably because they're built different than "regular" playlists
+        added_by_id = "<unknown>"
+    return [*track_row[:-1], item["added_by"]["id"], *track_row[-1:]]
 
 
 def album_to_row(item) -> list:

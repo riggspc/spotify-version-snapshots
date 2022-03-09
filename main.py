@@ -28,6 +28,13 @@ TEST_MODE = True
 # - If a playlist renamed or deleted (renamed to empty string), do a move from the old tracks file to the new
 #   one rather than just adding a new one and not touching the old one
 # - Make the first commit to the shapshots repo be special (message wording etc)
+# - Make num songs across playlists in commit message accurate when a new playlist
+#   is subscribed to (it counts the first line of the TSV as a track)
+# - Make main tsv filenames constants shared across files
+# - Refactor out API limit of 50 into a const
+# - Might be more accurate to read from the files when calculating initial commit
+#   stats, as opposed to looking at the added lines from the commit...might not
+#   be worth it
 
 
 def get_saved_tracks(sp_client: Spotify) -> dict:

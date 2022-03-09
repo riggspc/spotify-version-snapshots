@@ -16,17 +16,18 @@ TEST_MODE = True
 # General TODOs:
 # - Error handling
 # - Refactor fetch code to share more logic
-# - Debug mode (limited fetching for quicker testing)
 # - Turn print statements into real (and higher quality) logging
 # - General things to support podcasts instead of just music tracks (default
 #   for most of these API requests/return data)
 # - Support for "added by" in playlist contents snapshot (not that hard)
-#   in all of the fetch methods (similar to example here - https://github.com/plamere/spotipy/blob/master/examples/user_playlists_contents.py)
-# - Make commit message for the snapshots be meaningful, with delta stats or
-#   something (eg. X playlists changed, Y changes to your library, etc)
 # - Params/args to this script to determine if the script commits changed
 #   snapshot files, pushes to a remote repo, and maybe other configurables
 # - Have "test mode" be a passed in param to the script, not a hardcoded bool
+# - If a playlist does not have a name then rename it something (eg. "Deleted playlist")
+#   or try to find what it used to be called (using ID)
+# - If a playlist renamed or deleted (renamed to empty string), do a move from the old tracks file to the new
+#   one rather than just adding a new one and not touching the old one
+# - Make the first commit to the shapshots repo be special (message wording etc)
 
 
 def get_saved_tracks(sp_client: Spotify) -> dict:

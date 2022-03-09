@@ -7,10 +7,11 @@ import utils.outputfileutils as outputfileutils
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy import Spotify
 from credentials import CLIENT_ID, CLIENT_SECRET
+from optparse import OptionParser
 
 API_REQUEST_SLEEP_TIME_SEC = 0.5
 
-TEST_MODE = True
+test_mode = True
 
 
 # General TODOs:
@@ -21,7 +22,6 @@ TEST_MODE = True
 #   for most of these API requests/return data)
 # - Params/args to this script to determine if the script commits changed
 #   snapshot files, pushes to a remote repo, and maybe other configurables
-# - Have "test mode" be a passed in param to the script, not a hardcoded bool
 # - If a playlist does not have a name then rename it something (eg. "Deleted playlist")
 #   or try to find what it used to be called (using ID)
 # - If a playlist renamed or deleted (renamed to empty string), do a move from the old tracks file to the new
@@ -34,6 +34,11 @@ TEST_MODE = True
 # - Might be more accurate to read from the files when calculating initial commit
 #   stats, as opposed to looking at the added lines from the commit...might not
 #   be worth it
+# - make script arg to push to remote repo, if configured
+
+
+def is_test_mode() -> bool:
+    return test_mode
 
 
 def get_saved_tracks(sp_client: Spotify) -> dict:
@@ -60,7 +65,7 @@ def get_saved_tracks(sp_client: Spotify) -> dict:
         else:
             break
 
-        if TEST_MODE:
+        if is_test_mode():
             break
 
     return saved_tracks
@@ -79,7 +84,9 @@ def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
 
     while True:
         result_items = results["items"]
-        print(f"Fetched {len(result_items)} tracks from playlist {playlist['name']} (pg {results['offset'] // limit})")
+        print(
+            f"Fetched {len(result_items)} tracks from playlist {playlist['name']} (pg {results['offset'] // limit})"
+        )
 
         # result_items is a list. Add them to the playlist_tracks dict by track ID
         # to prevent duplicated tracks appearing if the playlist was added to
@@ -99,7 +106,7 @@ def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
         else:
             break
 
-        if TEST_MODE:
+        if is_test_mode():
             break
 
     return playlist_tracks
@@ -129,7 +136,7 @@ def get_saved_albums(sp_client: Spotify) -> dict:
         else:
             break
 
-        if TEST_MODE:
+        if is_test_mode():
             break
 
     return saved_albums
@@ -144,7 +151,9 @@ def get_playlists(sp_client: Spotify) -> dict:
 
     while True:
         result_items = results["items"]
-        print(f"Fetched {len(result_items)} playlists (pg {results['offset'] // limit})")
+        print(
+            f"Fetched {len(result_items)} playlists (pg {results['offset'] // limit})"
+        )
 
         # result_items is a list. Add them to the saved_playlists dict by album
         # ID to prevent duplicated playlists appearing if new playlists were
@@ -159,13 +168,33 @@ def get_playlists(sp_client: Spotify) -> dict:
         else:
             break
 
-        if TEST_MODE:
+        if is_test_mode():
             break
 
     return saved_playlists
 
 
 def main():
+    parser = OptionParser()
+    parser.add_option(
+        "-p",
+        "--prod-run",
+        action="store_true",
+        default=False,
+        dest="prodrun",
+        help="runs the 'real' version of the script, fetching everything and "
+        "writing to the 'real' snapshots repo instead of a test one",
+    )
+    (options, args) = parser.parse_args()
+
+    global test_mode
+    test_mode = not options.prodrun
+
+    if is_test_mode():
+        print("Running in test mode...")
+    else:
+        print("*** RUNNING IN PROD MODE ***")
+
     sp_client = spotipy.Spotify(
         auth_manager=SpotifyOAuth(
             client_id=CLIENT_ID,

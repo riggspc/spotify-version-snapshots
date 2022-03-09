@@ -31,7 +31,13 @@ def commit_files() -> None:
 
 
 def get_commit_message_for_amending(commit: Commit) -> str:
-    commit_title = f'Spotify Snapshot - {datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}'
+    is_first_commit = len(commit.parents) == 0
+    if is_first_commit:
+        commit_title = "Initial Spotify Snapshot"
+    else:
+        commit_title = (
+            f'Spotify Snapshot - {datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}'
+        )
     stats = commit.stats
     playlist_additions = 0
     playlist_removals = 0
@@ -42,32 +48,59 @@ def get_commit_message_for_amending(commit: Commit) -> str:
         playlist_removals += stats.files[changed_file]["deletions"]
     commit_details = []
     if "saved_tracks.tsv" in stats.files:
-        commit_details.extend(
-            [
-                f"Added Songs: {stats.files['saved_tracks.tsv']['insertions']}",
-                f"Removed Songs: {stats.files['saved_tracks.tsv']['deletions']}",
-            ]
-        )
+        track_stats = stats.files["saved_tracks.tsv"]
+        if is_first_commit:
+            # Subtract 1 to not count the first line (eg. the header in the TSV)
+            commit_details.append(f"Tracks In Library: {track_stats['insertions'] - 1}")
+        else:
+            commit_details.extend(
+                [
+                    f"Added Tracks: {track_stats['insertions']}",
+                    f"Removed Tracks: {track_stats['deletions']}",
+                ]
+            )
     if "saved_albums.tsv" in stats.files:
-        commit_details.extend(
-            [
-                f"Added Albums: {stats.files['saved_albums.tsv']['insertions']}",
-                f"Removed Albums: {stats.files['saved_albums.tsv']['deletions']}",
-            ]
-        )
+        album_stats = stats.files["saved_albums.tsv"]
+        if is_first_commit:
+            # Subtract 1 to not count the first line (eg. the header in the TSV)
+            commit_details.append(f"Albums In Library: {album_stats['insertions'] - 1}")
+        else:
+            commit_details.extend(
+                [
+                    f"Added Albums: {album_stats['insertions']}",
+                    f"Removed Albums: {album_stats['deletions']}",
+                ]
+            )
     if "playlists.tsv" in stats.files:
+        playlist_stats = stats.files["playlists.tsv"]
+        if is_first_commit:
+            # Subtract 1 to not count the first line (eg. the header in the TSV)
+            commit_details.append(
+                f"Playlists In Library: {playlist_stats['insertions'] - 1}"
+            )
+        else:
+            commit_details.extend(
+                [
+                    f"Added Playlists: {playlist_stats['insertions']}",
+                    f"Removed Playlists: {playlist_stats['deletions']}",
+                ]
+            )
+    if is_first_commit:
+        num_playlists = 0
+        # This file should always exist in the first commit, but just be safe
+        if stats.files["playlists.tsv"]:
+            # Subtract 1 to not count the first line (eg. the header in the TSV)
+            num_playlists = stats.files["playlists.tsv"]["insertions"] - 1
+        commit_details.append(
+            f"Tracks Across All Playlists {playlist_additions - num_playlists}"
+        )
+    else:
         commit_details.extend(
             [
-                f"Added Playlists: {stats.files['playlists.tsv']['insertions']}",
-                f"Removed Playlists: {stats.files['playlists.tsv']['deletions']}",
+                f"Total Additions Across Playlists: {playlist_additions}",
+                f"Total Removals Across Playlists: {playlist_removals}",
             ]
         )
-    commit_details.extend(
-        [
-            f"Total Additions Across Playlists: {playlist_additions}",
-            f"Total Removals Across Playlists: {playlist_removals}",
-        ]
-    )
 
     commit_message_body = "\n".join(commit_details)
 

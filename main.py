@@ -20,8 +20,7 @@ test_mode = True
 # - Turn print statements into real (and higher quality) logging
 # - General things to support podcasts instead of just music tracks (default
 #   for most of these API requests/return data)
-# - Params/args to this script to determine if the script commits changed
-#   snapshot files, pushes to a remote repo, and maybe other configurables
+# - Add arg to push to remote repo, if set up
 # - If a playlist does not have a name then rename it something (eg. "Deleted playlist")
 #   or try to find what it used to be called (using ID)
 # - If a playlist renamed or deleted (renamed to empty string), do a move from the old tracks file to the new
@@ -185,6 +184,14 @@ def main():
         help="runs the 'real' version of the script, fetching everything and "
         "writing to the 'real' snapshots repo instead of a test one",
     )
+    parser.add_option(
+        "-n",
+        "--no-commit",
+        action="store_true",
+        dest="nocommit",
+        help="when present, will run the entire script but not commit the "
+        "results, leaving the repo dirty for manual committing later",
+    )
     (options, args) = parser.parse_args()
 
     global test_mode
@@ -259,7 +266,10 @@ def main():
             output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/playlists/{escaped_playlist_name} ({playlist['id']}).tsv",
         )
 
-    gitutils.commit_files()
+    if options.nocommit:
+        print("Skipping committing changes, leaving in repo")
+    else:
+        gitutils.commit_files()
 
 
 if __name__ == "__main__":

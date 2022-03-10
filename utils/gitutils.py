@@ -2,7 +2,7 @@ import git
 from datetime import datetime
 
 from git import NoSuchPathError, Commit
-from main import is_test_mode
+from main import is_test_mode, FILENAMES
 
 if is_test_mode():
     SNAPSHOTS_REPO_NAME = "TEST-REPO"
@@ -42,13 +42,13 @@ def get_commit_message_for_amending(commit: Commit) -> str:
     playlist_additions = 0
     playlist_removals = 0
     for changed_file in stats.files:
-        if changed_file in {"playlists.tsv", "saved_albums.tsv", "saved_tracks.tsv"}:
+        if changed_file in FILENAMES.values():
             continue
         playlist_additions += stats.files[changed_file]["insertions"]
         playlist_removals += stats.files[changed_file]["deletions"]
     commit_details = []
-    if "saved_tracks.tsv" in stats.files:
-        track_stats = stats.files["saved_tracks.tsv"]
+    if FILENAMES["tracks"] in stats.files:
+        track_stats = stats.files[FILENAMES["tracks"]]
         if is_first_commit:
             # Subtract 1 to not count the first line (eg. the header in the TSV)
             commit_details.append(f"Tracks In Library: {track_stats['insertions'] - 1}")
@@ -59,8 +59,8 @@ def get_commit_message_for_amending(commit: Commit) -> str:
                     f"Removed Tracks: {track_stats['deletions']}",
                 ]
             )
-    if "saved_albums.tsv" in stats.files:
-        album_stats = stats.files["saved_albums.tsv"]
+    if FILENAMES["albums"] in stats.files:
+        album_stats = stats.files[FILENAMES["albums"]]
         if is_first_commit:
             # Subtract 1 to not count the first line (eg. the header in the TSV)
             commit_details.append(f"Albums In Library: {album_stats['insertions'] - 1}")
@@ -71,8 +71,8 @@ def get_commit_message_for_amending(commit: Commit) -> str:
                     f"Removed Albums: {album_stats['deletions']}",
                 ]
             )
-    if "playlists.tsv" in stats.files:
-        playlist_stats = stats.files["playlists.tsv"]
+    if FILENAMES["playlists"] in stats.files:
+        playlist_stats = stats.files[FILENAMES["playlists"]]
         if is_first_commit:
             # Subtract 1 to not count the first line (eg. the header in the TSV)
             commit_details.append(

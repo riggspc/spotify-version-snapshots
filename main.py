@@ -10,6 +10,14 @@ from credentials import CLIENT_ID, CLIENT_SECRET
 from optparse import OptionParser
 
 API_REQUEST_SLEEP_TIME_SEC = 0.5
+# For albums, playlists, etc - the Spotify API has a (current) max of 50 things
+# it can fetch at a time
+API_REQUEST_LIMIT = 50
+FILENAMES = {
+    "tracks": "saved_tracks.tsv",
+    "albums": "saved_albums.tsv",
+    "playlists": "playlists.tsv",
+}
 
 test_mode = True
 
@@ -26,8 +34,6 @@ test_mode = True
 #   one rather than just adding a new one and not touching the old one
 # - Make num songs across playlists in commit message accurate when a new playlist
 #   is subscribed to (it counts the first line of the TSV as a track)
-# - Make main tsv filenames constants shared across files
-# - Refactor out API limit of 50 into a const
 # - Might be more accurate to read from the files when calculating initial commit
 #   stats, as opposed to looking at the added lines from the commit...might not
 #   be worth it
@@ -40,15 +46,14 @@ def is_test_mode() -> bool:
 
 
 def get_saved_tracks(sp_client: Spotify) -> dict:
-    # Can only get 50 tracks at a time, iterate through the library until we've
-    # got them all
-    limit = 50
     saved_tracks = {}
-    results = sp_client.current_user_saved_tracks(limit)
+    results = sp_client.current_user_saved_tracks(API_REQUEST_LIMIT)
 
     while True:
         result_items = results["items"]
-        print(f"Fetched {len(result_items)} tracks (pg {results['offset'] // limit})")
+        print(
+            f"Fetched {len(result_items)} tracks (pg {results['offset'] // API_REQUEST_LIMIT})"
+        )
 
         # result_items is a list. Add them to the saved_tracks dict by track ID
         # to prevent duplicated tracks appearing if the library was added to
@@ -70,20 +75,17 @@ def get_saved_tracks(sp_client: Spotify) -> dict:
 
 
 def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
-    # Can only get 50 tracks at a time, iterate through the playlist until
-    # we've got them all
-    limit = 50
     playlist_tracks = {}
     results = sp_client.playlist_tracks(
         playlist_id=playlist["id"],
         fields="items(added_at,added_by(id),track(name,id,artists(name),album(name,id))),next,offset",
-        limit=limit,
+        limit=API_REQUEST_LIMIT,
     )
 
     while True:
         result_items = results["items"]
         print(
-            f"Fetched {len(result_items)} tracks from playlist {playlist['name']} (pg {results['offset'] // limit})"
+            f"Fetched {len(result_items)} tracks from playlist {playlist['name']} (pg {results['offset'] // API_REQUEST_LIMIT})"
         )
 
         # result_items is a list. Add them to the playlist_tracks dict by track ID
@@ -111,15 +113,14 @@ def get_tracks_from_playlist(sp_client: Spotify, playlist) -> dict:
 
 
 def get_saved_albums(sp_client: Spotify) -> dict:
-    # Can only get 50 albums at a time, iterate through the library until we've
-    # got them all
-    limit = 50
     saved_albums = {}
-    results = sp_client.current_user_saved_albums(limit)
+    results = sp_client.current_user_saved_albums(API_REQUEST_LIMIT)
 
     while True:
         result_items = results["items"]
-        print(f"Fetched {len(result_items)} albums (pg {results['offset'] // limit})")
+        print(
+            f"Fetched {len(result_items)} albums (pg {results['offset'] // API_REQUEST_LIMIT})"
+        )
 
         # result_items is a list. Add them to the saved_albums dict by album ID
         # to prevent duplicated albums appearing if the library was added to
@@ -141,16 +142,13 @@ def get_saved_albums(sp_client: Spotify) -> dict:
 
 
 def get_playlists(sp_client: Spotify) -> dict:
-    # Can only get 50 playlists at a time, iterate through the library until
-    # we've got them all
-    limit = 50
     saved_playlists = {}
-    results = sp_client.current_user_playlists(limit)
+    results = sp_client.current_user_playlists(API_REQUEST_LIMIT)
 
     while True:
         result_items = results["items"]
         print(
-            f"Fetched {len(result_items)} playlists (pg {results['offset'] // limit})"
+            f"Fetched {len(result_items)} playlists (pg {results['offset'] // API_REQUEST_LIMIT})"
         )
 
         # result_items is a list. Add them to the saved_playlists dict by album
@@ -222,7 +220,7 @@ def main():
         sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),
         header_row=outputfileutils.TRACK_HEADER_ROW,
         item_to_row_lambda=outputfileutils.track_to_row,
-        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/saved_tracks.tsv",
+        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/{FILENAMES['tracks']}",
     )
     print(f"Wrote {len(saved_tracks)} tracks to file")
 
@@ -232,7 +230,7 @@ def main():
         sort_lambda=lambda item: (item["added_at"], item["album"]["name"]),
         header_row=outputfileutils.ALBUM_HEADER_ROW,
         item_to_row_lambda=outputfileutils.album_to_row,
-        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/saved_albums.tsv",
+        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/{FILENAMES['albums']}",
     )
     print(f"Wrote {len(saved_albums)} albums to file")
 
@@ -248,7 +246,7 @@ def main():
         sort_lambda=lambda item: item["id"],
         header_row=outputfileutils.PLAYLIST_HEADER_ROW,
         item_to_row_lambda=outputfileutils.playlist_to_row,
-        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/playlists.tsv",
+        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/{FILENAMES['playlists']}",
     )
 
     # Snapshot the contents of each playlist too

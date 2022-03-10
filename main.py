@@ -39,6 +39,8 @@ test_mode = True
 #   be worth it
 # - make script arg to push to remote repo, if configured
 # - Handle the "no changes" situation (don't commit? better error? empty commit?)
+# - Make things (like utils) into real classes
+# - Better names for files (especially this one)
 
 
 def is_test_mode() -> bool:
@@ -212,7 +214,8 @@ def main():
         )
     )
 
-    gitutils.setup_git_repo_if_needed()
+    gitutils.setup_git_repo_if_needed(is_test_mode())
+    snapshots_repo_name = gitutils.get_repo_name(is_test_mode())
 
     saved_tracks = get_saved_tracks(sp_client)
     outputfileutils.write_to_file(
@@ -220,7 +223,7 @@ def main():
         sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),
         header_row=outputfileutils.TRACK_HEADER_ROW,
         item_to_row_lambda=outputfileutils.track_to_row,
-        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/{FILENAMES['tracks']}",
+        output_filename=f"{snapshots_repo_name}/{FILENAMES['tracks']}",
     )
     print(f"Wrote {len(saved_tracks)} tracks to file")
 
@@ -230,7 +233,7 @@ def main():
         sort_lambda=lambda item: (item["added_at"], item["album"]["name"]),
         header_row=outputfileutils.ALBUM_HEADER_ROW,
         item_to_row_lambda=outputfileutils.album_to_row,
-        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/{FILENAMES['albums']}",
+        output_filename=f"{snapshots_repo_name}/{FILENAMES['albums']}",
     )
     print(f"Wrote {len(saved_albums)} albums to file")
 
@@ -246,7 +249,7 @@ def main():
         sort_lambda=lambda item: item["id"],
         header_row=outputfileutils.PLAYLIST_HEADER_ROW,
         item_to_row_lambda=outputfileutils.playlist_to_row,
-        output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/{FILENAMES['playlists']}",
+        output_filename=f"{snapshots_repo_name}/{FILENAMES['playlists']}",
     )
 
     # Snapshot the contents of each playlist too
@@ -260,13 +263,13 @@ def main():
             item_to_row_lambda=outputfileutils.playlist_track_to_row,
             # Note that the playlist name needs to have slashes replaced with
             # a Unicode character that looks just like a slash
-            output_filename=f"{gitutils.SNAPSHOTS_REPO_NAME}/playlists/{escaped_playlist_name} ({playlist['id']}).tsv",
+            output_filename=f"{snapshots_repo_name}/playlists/{escaped_playlist_name} ({playlist['id']}).tsv",
         )
 
     if options.nocommit:
         print("Skipping committing changes, leaving in repo")
     else:
-        gitutils.commit_files()
+        gitutils.commit_files(is_test_mode())
 
 
 if __name__ == "__main__":

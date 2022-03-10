@@ -2,26 +2,28 @@ import git
 from datetime import datetime
 
 from git import NoSuchPathError, Commit
-from main import is_test_mode, FILENAMES
+from main import FILENAMES
 
-if is_test_mode():
-    SNAPSHOTS_REPO_NAME = "TEST-REPO"
-else:
-    SNAPSHOTS_REPO_NAME = "spotify-snapshots-repo"
+def get_repo_name(is_test_mode: bool) -> bool:
+    if is_test_mode:
+        return "TEST-REPO"
+    else:
+        return "spotify-snapshots-repo"
 
 
-def setup_git_repo_if_needed() -> None:
+def setup_git_repo_if_needed(is_test_mode) -> None:
+    repo_name = get_repo_name(is_test_mode)
     try:
-        my_repo = git.Repo(SNAPSHOTS_REPO_NAME)
+        my_repo = git.Repo(repo_name)
         print("Found existing repo")
     except NoSuchPathError as e:
         print("No repo, making a new one")
-        new_repo = git.Repo.init(SNAPSHOTS_REPO_NAME)
+        new_repo = git.Repo.init(repo_name)
 
 
 # Assumes repo already exists etc
-def commit_files() -> None:
-    repo = git.Repo(SNAPSHOTS_REPO_NAME)
+def commit_files(is_test_mode) -> None:
+    repo = git.Repo(get_repo_name(is_test_mode))
     repo.index.add(items="*")
     # A temp commit is needed to get stats etc - the library doesn't support it
     # otherwise

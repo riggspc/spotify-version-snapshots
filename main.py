@@ -41,6 +41,9 @@ test_mode = True
 # - Handle the "no changes" situation (don't commit? better error? empty commit?)
 # - Make things (like utils) into real classes
 # - Better names for files (especially this one)
+# - Added/removed playlists in commit message is wrong (adding/removing tracks
+#   makes it look like both an addition and removal). Need to probably look at
+#   playlist IDs to be accurate in that
 
 
 def is_test_mode() -> bool:
@@ -269,7 +272,9 @@ def main():
     if options.nocommit:
         print("Skipping committing changes, leaving in repo")
     else:
+        print("Committing changes...")
         gitutils.commit_files(is_test_mode())
+        print("Changes committed. All done!")
 
 
 if __name__ == "__main__":

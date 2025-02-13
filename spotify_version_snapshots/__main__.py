@@ -65,25 +65,25 @@ def main(prod_run, no_commit):
     gitutils.setup_git_repo_if_needed(is_test_mode)
     snapshots_repo_name = gitutils.get_repo_name(is_test_mode)
 
-    saved_tracks = spotify.get_saved_tracks(sp_client, is_test_mode)
-    outputfileutils.write_to_file(
-        data=saved_tracks,
-        sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),
-        header_row=outputfileutils.TRACK_HEADER_ROW,
-        item_to_row_lambda=outputfileutils.track_to_row,
-        output_filename=f"{snapshots_repo_name}/{FILENAMES['tracks']}",
-    )
-    print(f"Wrote {len(saved_tracks)} tracks to file")
+    # saved_tracks = spotify.get_saved_tracks(sp_client, is_test_mode)
+    # outputfileutils.write_to_file(
+    #     data=saved_tracks,
+    #     sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),
+    #     header_row=outputfileutils.TRACK_HEADER_ROW,
+    #     item_to_row_lambda=outputfileutils.track_to_row,
+    #     output_filename=f"{snapshots_repo_name}/{FILENAMES['tracks']}",
+    # )
+    # print(f"Wrote {len(saved_tracks)} tracks to file")
 
-    saved_albums = spotify.get_saved_albums(sp_client, is_test_mode)
-    outputfileutils.write_to_file(
-        data=saved_albums,
-        sort_lambda=lambda item: (item["added_at"], item["album"]["name"]),
-        header_row=outputfileutils.ALBUM_HEADER_ROW,
-        item_to_row_lambda=outputfileutils.album_to_row,
-        output_filename=f"{snapshots_repo_name}/{FILENAMES['albums']}",
-    )
-    print(f"Wrote {len(saved_albums)} albums to file")
+    # saved_albums = spotify.get_saved_albums(sp_client, is_test_mode)
+    # outputfileutils.write_to_file(
+    #     data=saved_albums,
+    #     sort_lambda=lambda item: (item["added_at"], item["album"]["name"]),
+    #     header_row=outputfileutils.ALBUM_HEADER_ROW,
+    #     item_to_row_lambda=outputfileutils.album_to_row,
+    #     output_filename=f"{snapshots_repo_name}/{FILENAMES['albums']}",
+    # )
+    # print(f"Wrote {len(saved_albums)} albums to file")
 
     # Playlists are a bit more complicated. Start by fetching all playlists the
     # user owns or is subscribed to

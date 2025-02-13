@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+spotipy = "*"
+gitpython = "*"
+click = "*"
+
+[dev-packages]
+black = "*"      # For code formatting
+flake8 = "*"     # For linting
+mypy = "*"       # For type checking
+
+[requires]
+python_version = "3.12" 

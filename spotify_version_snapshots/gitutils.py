@@ -2,7 +2,9 @@ import git
 from datetime import datetime
 
 from git import NoSuchPathError, Commit
-from main import FILENAMES
+from spotify_version_snapshots import constants
+
+FILENAMES = constants.FILENAMES 
 
 def get_repo_name(is_test_mode: bool) -> bool:
     if is_test_mode:

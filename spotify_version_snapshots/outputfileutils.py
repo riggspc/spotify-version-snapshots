@@ -46,10 +46,6 @@ def write_to_file(
             f"[blue]Creating directory[/blue] [green][bold]{dir_path}[/bold][/green]..."
         )
         os.makedirs(dir_path, exist_ok=True)
-    else:
-        rprint(
-            f"[yellow]Directory already exists[/yellow] [green][bold]{dir_path}[/bold][/green]"
-        )
 
     sorted_list = sorted(list(data.values()), key=sort_lambda)
     output_rows = [header_row]

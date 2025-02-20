@@ -1,9 +1,9 @@
 import git
 from datetime import datetime
 from rich import print as rprint
-
+import os
 from git import NoSuchPathError, Commit
-from spotify_version_snapshots import constants
+from spotify_version_snapshots import constants, spotify
 
 FILENAMES = constants.FILENAMES
 
@@ -29,16 +29,20 @@ def setup_git_repo_if_needed(is_test_mode) -> None:
         git.Repo.init(repo_name)
 
 
-# Assumes repo already exists etc
+# Requires that setup_git_repo_if_needed has already been called
 def commit_files(is_test_mode) -> None:
     repo = git.Repo(get_repo_name(is_test_mode))
+
+    is_first_commit = repo.head.commit is None
+    if not is_first_commit:
+        remove_deleted_playlists(repo, is_test_mode)
 
     # Check if there are any changes to commit
     if not repo.is_dirty(untracked_files=True):
         rprint("[yellow]No changes to commit[/yellow]")
         return
 
-    repo.index.add(items="*")
+    repo.git.add(A=True)
     # A temp commit is needed to get stats etc - the library doesn't support it
     # otherwise
     commit = repo.index.commit("temp")
@@ -48,6 +52,72 @@ def commit_files(is_test_mode) -> None:
     )
     repo.git.commit("--amend", "-m", commit_message)
     rprint("[green]Changes committed. All done![/green]")
+
+
+def get_deleted_playlists(
+    repo: git.Repo, is_test_mode: bool
+) -> list[spotify.DeletedPlaylist]:
+    """
+    Returns a list of playlists that were deleted in the working directory changes
+    """
+    playlists_file = get_repo_name(is_test_mode) / FILENAMES["playlists"]
+    print(f"playlists_file: {playlists_file}")
+
+    # Get the working directory changes for the playlists file
+    deleted_lines = []
+    diff = repo.head.commit.diff(None)
+    print(f"diff: {diff}")
+    for diff_item in diff:
+        print(f"Comparing {diff_item.a_path} with {FILENAMES['playlists']}")
+        # Convert both paths to strings for comparison
+        if str(FILENAMES["playlists"]) in diff_item.a_path:
+            print("Found matching file!")
+            # Read the old version of the file from the last commit
+            old_content = (
+                diff_item.a_blob.data_stream.read().decode("utf-8").splitlines()
+            )
+            # Read the current version from the working directory
+            with open(playlists_file, "r", encoding="utf-8") as f:
+                new_content = f.read().splitlines()
+
+            # TODO: Handle the case where the new version has no playlists
+
+            # Find lines that were in the old content but not in the new content
+            deleted_lines = [line for line in old_content if line not in new_content]
+            rprint(f"[red]Found {len(deleted_lines)} deleted playlists[/red]")
+
+    # Get the playlists that were deleted
+    deleted_playlists = []
+    for deleted_playlist in deleted_lines:
+        if not deleted_playlist.strip():  # Skip empty lines
+            continue
+        # Get the playlist name from the first column
+        playlist_name = deleted_playlist.split("\t")[0]
+        # Get the playlist ID from the last column
+        playlist_id = deleted_playlist.split("\t")[-1]
+        deleted_playlists.append(
+            spotify.DeletedPlaylist(name=playlist_name, id=playlist_id)
+        )
+    return deleted_playlists
+
+
+def remove_deleted_playlists(repo: git.Repo, is_test_mode: bool) -> None:
+    """
+    Removes the playlists that were deleted in the staged changes
+    """
+    try:
+        repo.head.commit  # Check if there are any commits
+    except ValueError:  # No commits yet
+        rprint("[yellow]First commit detected. No playlists to delete.[/yellow]")
+        return
+
+    deleted_playlists = get_deleted_playlists(repo, is_test_mode)
+    for playlist in deleted_playlists:
+        file_path_to_remove = spotify.get_playlist_file_name(
+            get_repo_name(is_test_mode), playlist
+        )
+        rprint(f"[red]Deleting[/red] {file_path_to_remove}")
+        os.remove(file_path_to_remove)
 
 
 def get_commit_message_for_amending(commit: Commit) -> str:

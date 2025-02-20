@@ -96,6 +96,12 @@ class SpotifyPlaylistsResponse:
     total: int
 
 
+@dataclass
+class DeletedPlaylist:
+    name: str
+    id: str
+
+
 #####
 # Spotify Operations
 #####
@@ -261,6 +267,30 @@ def create_spotify_client() -> spotipy.Spotify:
 #####
 
 
+def get_playlist_file_name(
+    snapshots_repo_name: Path, playlist: SpotifyPlaylist | DeletedPlaylist
+) -> Path:
+    """Generate the file path for a playlist's tracks file.
+
+    Args:
+        snapshots_repo_name: Base directory for snapshots
+        playlist: Either a Spotify playlist dict or DeletedPlaylist object
+
+    Returns:
+        Path object for the playlist's tracks file
+    """
+    # Handle both dict and dataclass access patterns
+    playlist_name = playlist["name"] if isinstance(playlist, dict) else playlist.name
+    playlist_id = playlist["id"] if isinstance(playlist, dict) else playlist.id
+
+    escaped_playlist_name = playlist_name.replace("/", "\u2215")
+    return (
+        snapshots_repo_name
+        / Path("playlists")
+        / Path(f"{escaped_playlist_name} ({playlist_id}).tsv")
+    )
+
+
 def write_liked_songs_to_git_repo(
     sp_client: spotipy.Spotify, snapshots_repo_name: Path
 ):
@@ -327,12 +357,7 @@ def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name:
         if not playlist_tracks:
             skipped_playlists.append(playlist["name"])
             continue
-        escaped_playlist_name = playlist["name"].replace("/", "\u2215")
-        playlist_tracks_file = (
-            snapshots_repo_name
-            / Path("playlists")
-            / Path(f"{escaped_playlist_name} ({playlist['id']}).tsv")
-        )
+        playlist_tracks_file = get_playlist_file_name(snapshots_repo_name, playlist)
         outputfileutils.write_to_file(
             data=playlist_tracks,
             sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),

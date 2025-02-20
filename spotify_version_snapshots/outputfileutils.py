@@ -23,18 +23,28 @@ TRACK_IN_PLAYLIST_HEADER_ROW = [
 ]
 
 
-# Takes in a dict of dicts (data), sorts into a list based on sort_key for each
-# dict, and then outputs each item to the file specified. Overwrites any such
-# existing file. Will create directories if needed.
 def write_to_file(
     data: dict,
     sort_lambda: Callable,
     item_to_row_lambda: Callable,
     header_row: list[str],
-    output_filename: str,
+    output_filename: Path,
 ) -> None:
-    # Make sure the dirs in the filepath exist, create if needed
-    os.makedirs(os.path.dirname(output_filename), exist_ok=True)
+    """
+    Takes in a dict of dicts (data), sorts into a list based on sort_key for each
+    dict, and then outputs each item to the file specified. Overwrites any such
+    existing file. Will create directories if needed.
+    """
+    print(f"Writing to {output_filename}")
+    # Get the directory path
+    dir_path = output_filename.parent
+
+    # Only try to create directories if there is actually a directory path
+    if dir_path:
+        print(f"Creating directory {dir_path}")
+        os.makedirs(dir_path, exist_ok=True)
+    else:
+        print("No directory path, skipping directory creation")
 
     sorted_list = sorted(list(data.values()), key=sort_lambda)
     output_rows = [header_row]

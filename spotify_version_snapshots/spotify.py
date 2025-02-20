@@ -1,4 +1,4 @@
-from spotify_version_snapshots import outputfileutils, constants
+from spotify_version_snapshots import outputfileutils, constants, credentials
 import spotipy
 import time
 from os import getenv, chmod
@@ -90,7 +90,7 @@ def get_liked_songs(sp_client: spotipy.Spotify) -> dict:
 
 
 def get_tracks_from_playlist(
-    sp_client: spotipy.Spotify, playlist, test_mode: bool = False
+    sp_client: spotipy.Spotify, playlist: SpotifyPlaylist, test_mode: bool = False
 ) -> dict:
     playlist_tracks = {}
     results = sp_client.playlist_tracks(
@@ -154,13 +154,13 @@ def get_playlists(sp_client: spotipy.Spotify, test_mode: bool = False) -> dict:
     results = sp_client.current_user_playlists(API_REQUEST_LIMIT)
 
     while True:
-        result_items = results["items"]
+        playlists: List[SpotifyPlaylist] = results["items"]
         print(
-            f"Fetched {len(result_items)} playlists (pg {results['offset'] // API_REQUEST_LIMIT})"
+            f"Fetched {len(playlists)} playlists (pg {results['offset'] // API_REQUEST_LIMIT})"
         )
 
-        for item in result_items:
-            saved_playlists[item["id"]] = item
+        for playlist in playlists:
+            saved_playlists[playlist["id"]] = playlist
 
         if results["next"]:
             time.sleep(API_REQUEST_SLEEP_TIME_SEC)
@@ -174,7 +174,7 @@ def get_playlists(sp_client: spotipy.Spotify, test_mode: bool = False) -> dict:
     return saved_playlists
 
 
-def create_spotify_client(client_id: str, client_secret: str) -> spotipy.Spotify:
+def create_spotify_client() -> spotipy.Spotify:
     """Create and return an authenticated Spotify client.
 
     Args:
@@ -184,6 +184,9 @@ def create_spotify_client(client_id: str, client_secret: str) -> spotipy.Spotify
     Returns:
         An authenticated Spotify client instance
     """
+    client_id = credentials.get_required_env_var("SPOTIFY_BACKUP_CLIENT_ID")
+    client_secret = credentials.get_required_env_var("SPOTIFY_BACKUP_CLIENT_SECRET")
+
     base_cache_path = Path(getenv("XDG_CACHE_HOME", Path.home() / ".cache"))
     cache_path = base_cache_path / "spotify-backup/.auth_cache"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -213,7 +216,9 @@ def create_spotify_client(client_id: str, client_secret: str) -> spotipy.Spotify
 #####
 
 
-def write_liked_songs_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name: str):
+def write_liked_songs_to_git_repo(
+    sp_client: spotipy.Spotify, snapshots_repo_name: Path
+):
     saved_tracks = get_liked_songs(sp_client)
     outputfileutils.write_to_file(
         data=saved_tracks,
@@ -226,24 +231,26 @@ def write_liked_songs_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_nam
 
 
 def write_saved_albums_to_git_repo(
-    sp_client: spotipy.Spotify, snapshots_repo_name: str
+    sp_client: spotipy.Spotify, snapshots_repo_name: Path
 ):
     saved_albums = get_saved_albums(sp_client)
+    dest_file = snapshots_repo_name / FILENAMES["albums"]
     outputfileutils.write_to_file(
         data=saved_albums,
         sort_lambda=lambda item: (item["added_at"], item["album"]["name"]),
         header_row=outputfileutils.ALBUM_HEADER_ROW,
         item_to_row_lambda=outputfileutils.album_to_row,
-        output_filename=f"{snapshots_repo_name}/{FILENAMES['albums']}",
+        output_filename=dest_file,
     )
     print(f"Wrote {len(saved_albums)} albums to file")
 
 
-def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name: str):
+def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name: Path):
     # Playlists are a bit more complicated. Start by fetching all playlists the # user owns or is subscribed to
     playlists = get_playlists(sp_client)
     # Eventually we'll fetch all the songs on those playlists and snapshot those too.
     # But for now, just list the playlists in the library
+    playlists_file = snapshots_repo_name / FILENAMES["playlists"]
     outputfileutils.write_to_file(
         data=playlists,
         # Sorting by id seems weird but this is to make sure order stays stable
@@ -251,13 +258,25 @@ def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name:
         sort_lambda=lambda item: item["id"],
         header_row=outputfileutils.PLAYLIST_HEADER_ROW,
         item_to_row_lambda=outputfileutils.playlist_to_row,
-        output_filename=f"{snapshots_repo_name}/{FILENAMES['playlists']}",
+        output_filename=playlists_file,
     )
+
+    # Keep track of skipped playlists
+    skipped_playlists = []
 
     # Snapshot the contents of each playlist too
     for playlist in playlists.values():
         playlist_tracks = get_tracks_from_playlist(sp_client, playlist)
+        # If the playlist is empty, skip it and log a warning
+        if not playlist_tracks:
+            skipped_playlists.append(playlist["name"])
+            continue
         escaped_playlist_name = playlist["name"].replace("/", "\u2215")
+        playlist_tracks_file = (
+            snapshots_repo_name
+            / Path("playlists")
+            / Path(f"{escaped_playlist_name} ({playlist['id']}).tsv")
+        )
         outputfileutils.write_to_file(
             data=playlist_tracks,
             sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),
@@ -265,5 +284,11 @@ def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name:
             item_to_row_lambda=outputfileutils.playlist_track_to_row,
             # Note that the playlist name needs to have slashes replaced with
             # a Unicode character that looks just like a slash
-            output_filename=f"{snapshots_repo_name}/{FILENAMES['playlists']}/{escaped_playlist_name} ({playlist['id']}).tsv",
+            output_filename=playlist_tracks_file,
         )
+
+    # Print summary of skipped playlists with rich styling
+    if skipped_playlists:
+        rprint(f"\n[yellow]Skipped {len(skipped_playlists)} empty playlists:[/yellow]")
+        for playlist_name in sorted(skipped_playlists):
+            rprint(f"[red]  • {playlist_name}[/red]")

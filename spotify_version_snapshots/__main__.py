@@ -1,11 +1,6 @@
 import click
 
-from spotify_version_snapshots import gitutils, credentials, constants, spotify
-
-
-CLIENT_ID = credentials.CLIENT_ID
-CLIENT_SECRET = credentials.CLIENT_SECRET
-FILENAMES = constants.FILENAMES
+from spotify_version_snapshots import gitutils, spotify, outputfileutils
 
 API_REQUEST_SLEEP_TIME_SEC = 0.5
 # For albums, playlists, etc - the Spotify API has a (current) max of 50 things
@@ -89,8 +84,6 @@ def main(
 
     # Handle pretty print request if specified
     if pretty_print:
-        from spotify_version_snapshots import outputfileutils
-
         outputfileutils.pretty_print_tsv_table(pretty_print)
         return
 
@@ -101,7 +94,7 @@ def main(
     else:
         print("*** RUNNING IN PROD MODE ***")
 
-    sp_client = spotify.create_spotify_client(CLIENT_ID, CLIENT_SECRET)
+    sp_client = spotify.create_spotify_client()
     gitutils.setup_git_repo_if_needed(is_test_mode)
     snapshots_repo_name = gitutils.get_repo_name(is_test_mode)
 

@@ -1,5 +1,7 @@
+from pathlib import Path
+
 FILENAMES = {
-    "tracks": "saved_tracks.tsv",
-    "albums": "saved_albums.tsv",
-    "playlists": "playlists.tsv",
+    "tracks": Path("saved_tracks.tsv"),
+    "albums": Path("saved_albums.tsv"),
+    "playlists": Path("playlists.tsv"),
 }

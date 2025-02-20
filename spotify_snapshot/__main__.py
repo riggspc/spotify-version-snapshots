@@ -13,27 +13,19 @@ API_REQUEST_LIMIT = 50
 
 
 # General TODOs:
-# - Error handling
-# - Refactor fetch code to share more logic
-# - Turn print statements into real (and higher quality) logging
-# - General things to support podcasts instead of just music tracks (default
-#   for most of these API requests/return data)
-# - If a playlist does not have a name then rename it something (eg. "Deleted playlist")
-#   or try to find what it used to be called (using ID)
-# - If a playlist renamed or deleted (renamed to empty string), do a move from the old tracks file to the new
-#   one rather than just adding a new one and not touching the old one
-# - Make num songs across playlists in commit message accurate when a new playlist
-#   is subscribed to (it counts the first line of the TSV as a track)
-# - Might be more accurate to read from the files when calculating initial commit
-#   stats, as opposed to looking at the added lines from the commit...might not
-#   be worth it
-# - make script arg to push to remote repo, if configured
-# - Handle the "no changes" situation (don't commit? better error? empty commit?)
-# - Make things (like utils) into real classes
-# - Better names for files (especially this one)
-# - Added/removed playlists in commit message is wrong (adding/removing tracks
-#   makes it look like both an addition and removal). Need to probably look at
-#   playlist IDs to be accurate in that
+#
+# Error Handling & Logging:
+# - Add comprehensive error handling
+# - Replace print statements with proper logging
+#
+# Code Quality:
+# - Add support for podcasts (not just music tracks)
+#
+# Playlist Management:
+# - Handle unnamed playlists (e.g. rename to "Deleted playlist")
+#
+# Repository:
+# - Add command line option to push to remote repo
 
 
 @click.command()

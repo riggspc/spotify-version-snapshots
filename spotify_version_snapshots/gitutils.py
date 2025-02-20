@@ -1,5 +1,6 @@
 import git
 from datetime import datetime
+from rich import print as rprint
 
 from git import NoSuchPathError, Commit
 from spotify_version_snapshots import constants
@@ -27,6 +28,12 @@ def setup_git_repo_if_needed(is_test_mode) -> None:
 # Assumes repo already exists etc
 def commit_files(is_test_mode) -> None:
     repo = git.Repo(get_repo_name(is_test_mode))
+
+    # Check if there are any changes to commit
+    if not repo.is_dirty(untracked_files=True):
+        rprint("[yellow]No changes to commit[/yellow]")
+        return
+
     repo.index.add(items="*")
     # A temp commit is needed to get stats etc - the library doesn't support it
     # otherwise

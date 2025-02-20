@@ -52,6 +52,44 @@ class SpotifyPlaylist:
     uri: str
 
 
+@dataclass
+class SpotifyAlbum:
+    name: str
+    id: str
+
+
+@dataclass
+class SpotifyArtist:
+    name: str
+
+
+@dataclass
+class SpotifyTrack:
+    album: SpotifyAlbum
+    artists: List[SpotifyArtist]
+    name: str
+    id: str
+
+
+@dataclass
+class SpotifyAddedBy:
+    id: str
+
+
+@dataclass
+class SpotifyPlaylistTrackItem:
+    track: SpotifyTrack
+    added_by: SpotifyAddedBy
+    added_at: str
+
+
+@dataclass
+class SpotifyPlaylistTracksResponse:
+    items: List[SpotifyPlaylistTrackItem]
+    next: Optional[str]
+    total: int
+
+
 #####
 # Spotify Operations
 #####
@@ -64,12 +102,14 @@ API_REQUEST_LIMIT = 50
 
 def get_liked_songs(sp_client: spotipy.Spotify) -> dict:
     liked_songs = {}
-    results = sp_client.current_user_saved_tracks(API_REQUEST_LIMIT)
+    results: SpotifyPlaylistTracksResponse = sp_client.current_user_saved_tracks(
+        API_REQUEST_LIMIT
+    )
     total_count = 0
     print("Getting liked songs...")
 
     while True:
-        result_items = results["items"]
+        result_items: List[SpotifyPlaylistTrackItem] = results["items"]
         total_count += len(result_items)
         print(
             f"Fetched {len(result_items)} more tracks (pg {results['offset'] // API_REQUEST_LIMIT})"
@@ -92,18 +132,20 @@ def get_liked_songs(sp_client: spotipy.Spotify) -> dict:
 def get_tracks_from_playlist(
     sp_client: spotipy.Spotify, playlist: SpotifyPlaylist, test_mode: bool = False
 ) -> dict:
+    print(f"Getting tracks from playlist {playlist['name']}...")
     playlist_tracks = {}
-    results = sp_client.playlist_tracks(
+    if not "Lucy" in playlist["name"]:
+        return playlist_tracks
+    results: SpotifyPlaylistTracksResponse = sp_client.playlist_tracks(
         playlist_id=playlist["id"],
         fields="items(added_at,added_by(id),track(name,id,artists(name),album(name,id))),next,total",
         limit=API_REQUEST_LIMIT,
     )
 
     while True:
-        result_items = results["items"]
+        result_items: List[SpotifyPlaylistTrackItem] = results["items"]
         print(
-            f"Fetched {len(result_items)} tracks from playlist {playlist['name']} "
-            f"(pg {results.get('offset', 0) // API_REQUEST_LIMIT}, total: {results['total']})"
+            f"Fetched {len(result_items)} more tracks (pg {results['offset'] // API_REQUEST_LIMIT})"
         )
 
         for item in result_items:
@@ -220,12 +262,13 @@ def write_liked_songs_to_git_repo(
     sp_client: spotipy.Spotify, snapshots_repo_name: Path
 ):
     saved_tracks = get_liked_songs(sp_client)
+    dest_file = snapshots_repo_name / FILENAMES["tracks"]
     outputfileutils.write_to_file(
         data=saved_tracks,
         sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),
         header_row=outputfileutils.TRACK_HEADER_ROW,
         item_to_row_lambda=outputfileutils.track_to_row,
-        output_filename=f"{snapshots_repo_name}/{FILENAMES['tracks']}",
+        output_filename=dest_file,
     )
     print(f"Wrote {len(saved_tracks)} tracks to file")
 

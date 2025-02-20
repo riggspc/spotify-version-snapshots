@@ -6,7 +6,7 @@ from spotify_version_snapshots import constants
 
 FILENAMES = constants.FILENAMES 
 
-def get_repo_name(is_test_mode: bool) -> bool:
+def get_repo_name(is_test_mode: bool) -> str:
     if is_test_mode:
         return "TEST-REPO"
     else:

@@ -1,7 +1,7 @@
 import time
 import click
 
-from spotify_version_snapshots import gitutils, outputfileutils, credentials, constants, spotify
+from spotify_version_snapshots import gitutils, credentials, constants, spotify
 
 
 CLIENT_ID = credentials.CLIENT_ID
@@ -51,7 +51,32 @@ API_REQUEST_LIMIT = 50
     default=False,
     help='When present, will run the entire script but not commit the results, leaving the repo dirty for manual committing later.'
 )
-def main(prod_run, no_commit):
+@click.option(
+    '--backup-all',
+    is_flag=True,
+    default=False,
+    help='Backup all library data, including liked songs, saved albums, and playlists.'
+)
+@click.option(
+    '--backup-liked-songs',
+    is_flag=True,
+    default=False,
+    help='Backup liked songs only.'
+)
+@click.option(
+    '--backup-saved-albums',
+    is_flag=True,
+    default=False,
+    help='Backup saved albums only.'
+)
+@click.option(
+    '--backup-playlists',
+    is_flag=True,
+    default=False,
+    help='Backup playlists only.'
+)
+
+def main(prod_run, no_commit, backup_all, backup_liked_songs, backup_saved_albums, backup_playlists):
     """Fetch and snapshot Spotify library data."""
     is_test_mode = not prod_run
 
@@ -61,58 +86,21 @@ def main(prod_run, no_commit):
         print("*** RUNNING IN PROD MODE ***")
 
     sp_client = spotify.create_spotify_client(CLIENT_ID, CLIENT_SECRET)
-
     gitutils.setup_git_repo_if_needed(is_test_mode)
     snapshots_repo_name = gitutils.get_repo_name(is_test_mode)
 
-    # saved_tracks = spotify.get_saved_tracks(sp_client, is_test_mode)
-    # outputfileutils.write_to_file(
-    #     data=saved_tracks,
-    #     sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),
-    #     header_row=outputfileutils.TRACK_HEADER_ROW,
-    #     item_to_row_lambda=outputfileutils.track_to_row,
-    #     output_filename=f"{snapshots_repo_name}/{FILENAMES['tracks']}",
-    # )
-    # print(f"Wrote {len(saved_tracks)} tracks to file")
+    # If no specific backup option is selected, default to backing up everything
+    if not any([backup_all, backup_liked_songs, backup_saved_albums, backup_playlists]):
+        backup_all = True
 
-    # saved_albums = spotify.get_saved_albums(sp_client, is_test_mode)
-    # outputfileutils.write_to_file(
-    #     data=saved_albums,
-    #     sort_lambda=lambda item: (item["added_at"], item["album"]["name"]),
-    #     header_row=outputfileutils.ALBUM_HEADER_ROW,
-    #     item_to_row_lambda=outputfileutils.album_to_row,
-    #     output_filename=f"{snapshots_repo_name}/{FILENAMES['albums']}",
-    # )
-    # print(f"Wrote {len(saved_albums)} albums to file")
+    if backup_all or backup_liked_songs:
+        spotify.write_liked_songs_to_git_repo(sp_client, snapshots_repo_name)
 
-    # Playlists are a bit more complicated. Start by fetching all playlists the
-    # user owns or is subscribed to
-    playlists = spotify.get_playlists(sp_client, is_test_mode)
-    # Eventually we'll fetch all the songs on those playlists and snapshot those
-    # too. But for now, just list the playlists in the library
-    outputfileutils.write_to_file(
-        data=playlists,
-        # Sorting by id seems weird but this is to make sure order stays stable
-        # even if a playlist is renamed etc
-        sort_lambda=lambda item: item["id"],
-        header_row=outputfileutils.PLAYLIST_HEADER_ROW,
-        item_to_row_lambda=outputfileutils.playlist_to_row,
-        output_filename=f"{snapshots_repo_name}/{FILENAMES['playlists']}",
-    )
+    if backup_all or backup_saved_albums:
+        spotify.write_saved_albums_to_git_repo(sp_client, snapshots_repo_name)
 
-    # Snapshot the contents of each playlist too
-    for playlist in playlists.values():
-        playlist_tracks = spotify.get_tracks_from_playlist(sp_client, playlist, is_test_mode)
-        escaped_playlist_name = playlist["name"].replace("/", "\u2215")
-        outputfileutils.write_to_file(
-            data=playlist_tracks,
-            sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),
-            header_row=outputfileutils.TRACK_IN_PLAYLIST_HEADER_ROW,
-            item_to_row_lambda=outputfileutils.playlist_track_to_row,
-            # Note that the playlist name needs to have slashes replaced with
-            # a Unicode character that looks just like a slash
-            output_filename=f"{snapshots_repo_name}/playlists/{escaped_playlist_name} ({playlist['id']}).tsv",
-        )
+    if backup_all or backup_playlists:
+        spotify.write_playlists_to_git_repo(sp_client, snapshots_repo_name)
 
     if no_commit:
         print("Skipping committing changes, leaving in repo")

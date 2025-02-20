@@ -100,23 +100,36 @@ API_REQUEST_SLEEP_TIME_SEC = 0.5
 API_REQUEST_LIMIT = 50
 
 
-def get_liked_songs(sp_client: spotipy.Spotify) -> dict:
-    liked_songs = {}
-    results: SpotifyPlaylistTracksResponse = sp_client.current_user_saved_tracks(
-        API_REQUEST_LIMIT
-    )
-    total_count = 0
-    print("Getting liked songs...")
+def _fetch_paginated_tracks(
+    sp_client: spotipy.Spotify,
+    initial_results: SpotifyPlaylistTracksResponse,
+) -> dict:
+    """Helper function to handle paginated track fetching from Spotify API.
+
+    Args:
+        sp_client: Authenticated Spotify client
+        initial_results: First page of results from API
+        test_mode: If True, only fetch first page
+
+    Returns:
+        Dictionary of track_id -> track_item
+    """
+    tracks_dict = {}
+    results = initial_results
+    skipped_tracks = []
 
     while True:
         result_items: List[SpotifyPlaylistTrackItem] = results["items"]
-        total_count += len(result_items)
         print(
             f"Fetched {len(result_items)} more tracks (pg {results['offset'] // API_REQUEST_LIMIT})"
         )
 
         for item in result_items:
-            liked_songs[item["track"]["id"]] = item
+            track = item.get("track")
+            if track is None:
+                skipped_tracks.append(item)
+                continue
+            tracks_dict[track["id"]] = item
 
         if results["next"]:
             time.sleep(API_REQUEST_SLEEP_TIME_SEC)
@@ -124,49 +137,37 @@ def get_liked_songs(sp_client: spotipy.Spotify) -> dict:
         else:
             break
 
-    print(f"Fetched {total_count} liked songs")
+    print(f"Skipped {len(skipped_tracks)} tracks")
+    for track in skipped_tracks:
+        print(track)
+    return tracks_dict
 
+
+def get_liked_songs(sp_client: spotipy.Spotify) -> dict:
+    print("Getting liked songs...")
+    initial_results = sp_client.current_user_saved_tracks(API_REQUEST_LIMIT)
+    liked_songs = _fetch_paginated_tracks(sp_client, initial_results)
+    print(f"Fetched {len(liked_songs)} liked songs")
     return liked_songs
 
 
 def get_tracks_from_playlist(
-    sp_client: spotipy.Spotify, playlist: SpotifyPlaylist, test_mode: bool = False
+    sp_client: spotipy.Spotify,
+    playlist: SpotifyPlaylist,
 ) -> dict:
     print(f"Getting tracks from playlist {playlist['name']}...")
-    playlist_tracks = {}
     if not "Lucy" in playlist["name"]:
-        return playlist_tracks
-    results: SpotifyPlaylistTracksResponse = sp_client.playlist_tracks(
+        return {}
+
+    initial_results = sp_client.playlist_tracks(
         playlist_id=playlist["id"],
         fields="items(added_at,added_by(id),track(name,id,artists(name),album(name,id))),next,total",
         limit=API_REQUEST_LIMIT,
     )
-
-    while True:
-        result_items: List[SpotifyPlaylistTrackItem] = results["items"]
-        print(
-            f"Fetched {len(result_items)} more tracks (pg {results['offset'] // API_REQUEST_LIMIT})"
-        )
-
-        for item in result_items:
-            track = item["track"]
-            if track is None:
-                continue
-            playlist_tracks[track["id"]] = item
-
-        if results["next"]:
-            time.sleep(API_REQUEST_SLEEP_TIME_SEC)
-            results = sp_client.next(results)
-        else:
-            break
-
-        if test_mode:
-            break
-
-    return playlist_tracks
+    return _fetch_paginated_tracks(sp_client, initial_results)
 
 
-def get_saved_albums(sp_client: spotipy.Spotify, test_mode: bool = False) -> dict:
+def get_saved_albums(sp_client: spotipy.Spotify) -> dict:
     saved_albums = {}
     results = sp_client.current_user_saved_albums(API_REQUEST_LIMIT)
 
@@ -185,13 +186,10 @@ def get_saved_albums(sp_client: spotipy.Spotify, test_mode: bool = False) -> dic
         else:
             break
 
-        if test_mode:
-            break
-
     return saved_albums
 
 
-def get_playlists(sp_client: spotipy.Spotify, test_mode: bool = False) -> dict:
+def get_playlists(sp_client: spotipy.Spotify) -> dict:
     saved_playlists = {}
     results = sp_client.current_user_playlists(API_REQUEST_LIMIT)
 
@@ -208,9 +206,6 @@ def get_playlists(sp_client: spotipy.Spotify, test_mode: bool = False) -> dict:
             time.sleep(API_REQUEST_SLEEP_TIME_SEC)
             results = sp_client.next(results)
         else:
-            break
-
-        if test_mode:
             break
 
     return saved_playlists

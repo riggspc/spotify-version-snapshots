@@ -33,7 +33,12 @@ def setup_git_repo_if_needed(is_test_mode) -> None:
 def commit_files(is_test_mode) -> None:
     repo = git.Repo(get_repo_name(is_test_mode))
 
-    is_first_commit = repo.head.commit is None
+    is_first_commit = False
+    try:
+        repo.head.commit
+    except ValueError:
+        is_first_commit = True
+
     if not is_first_commit:
         remove_deleted_playlists(repo, is_test_mode)
 

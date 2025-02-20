@@ -6,7 +6,6 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Optional, Dict
 from rich import print as rprint
-from rich.style import Style
 
 FILENAMES = constants.FILENAMES
 
@@ -90,6 +89,13 @@ class SpotifyPlaylistTracksResponse:
     total: int
 
 
+@dataclass
+class SpotifyPlaylistsResponse:
+    items: List[SpotifyPlaylist]
+    next: Optional[str]
+    total: int
+
+
 #####
 # Spotify Operations
 #####
@@ -115,13 +121,15 @@ def _fetch_paginated_tracks(
         Dictionary of track_id -> track_item
     """
     tracks_dict = {}
+    total_tracks_fetched = 0
     results = initial_results
     skipped_tracks = []
 
     while True:
         result_items: List[SpotifyPlaylistTrackItem] = results["items"]
-        print(
-            f"Fetched {len(result_items)} more tracks (pg {results['offset'] // API_REQUEST_LIMIT})"
+        total_tracks_fetched += len(result_items)
+        rprint(
+            f"[green]Fetched[/green] {total_tracks_fetched} / {results['total']} tracks"
         )
 
         for item in result_items:
@@ -137,9 +145,10 @@ def _fetch_paginated_tracks(
         else:
             break
 
-    print(f"Skipped {len(skipped_tracks)} tracks")
-    for track in skipped_tracks:
-        print(track)
+    if skipped_tracks:
+        rprint(f"[red]Skipped[/red] {len(skipped_tracks)} tracks")
+        for track in skipped_tracks:
+            rprint(f"[red]  • {track}[/red]")
     return tracks_dict
 
 
@@ -147,7 +156,6 @@ def get_liked_songs(sp_client: spotipy.Spotify) -> dict:
     print("Getting liked songs...")
     initial_results = sp_client.current_user_saved_tracks(API_REQUEST_LIMIT)
     liked_songs = _fetch_paginated_tracks(sp_client, initial_results)
-    print(f"Fetched {len(liked_songs)} liked songs")
     return liked_songs
 
 
@@ -155,8 +163,8 @@ def get_tracks_from_playlist(
     sp_client: spotipy.Spotify,
     playlist: SpotifyPlaylist,
 ) -> dict:
-    print(f"Getting tracks from playlist {playlist['name']}...")
-    if not "Lucy" in playlist["name"]:
+    rprint(f"[blue]Getting tracks from playlist[/blue] {playlist['name']}...")
+    if not "Lines" in playlist["name"]:
         return {}
 
     initial_results = sp_client.playlist_tracks(
@@ -173,9 +181,7 @@ def get_saved_albums(sp_client: spotipy.Spotify) -> dict:
 
     while True:
         result_items = results["items"]
-        print(
-            f"Fetched {len(result_items)} albums (pg {results['offset'] // API_REQUEST_LIMIT})"
-        )
+        rprint(f"[green]Fetched[/green] {len(result_items)} albums")
 
         for item in result_items:
             saved_albums[item["album"]["id"]] = item
@@ -191,13 +197,15 @@ def get_saved_albums(sp_client: spotipy.Spotify) -> dict:
 
 def get_playlists(sp_client: spotipy.Spotify) -> dict:
     saved_playlists = {}
-    results = sp_client.current_user_playlists(API_REQUEST_LIMIT)
+    results: SpotifyPlaylistsResponse = sp_client.current_user_playlists(
+        API_REQUEST_LIMIT
+    )
+
+    rprint(f"[green]Fetching[/green] {results['total']} playlists...")
 
     while True:
         playlists: List[SpotifyPlaylist] = results["items"]
-        print(
-            f"Fetched {len(playlists)} playlists (pg {results['offset'] // API_REQUEST_LIMIT})"
-        )
+        rprint(f"[green]Fetched[/green] {len(playlists)} playlists")
 
         for playlist in playlists:
             saved_playlists[playlist["id"]] = playlist
@@ -243,7 +251,8 @@ def create_spotify_client() -> spotipy.Spotify:
         )
     )
 
-    # Spotipy does not set the permissions on the cache file correctly, so we need to do it manually
+    # Spotipy does not set the permissions on the cache file correctly, so we do it manually
+    # I filed https://github.com/spotipy-dev/spotipy/security/advisories/GHSA-pwhh-q4h6-w599
     chmod(cache_path, 0o600)
     return client
 
@@ -265,7 +274,7 @@ def write_liked_songs_to_git_repo(
         item_to_row_lambda=outputfileutils.track_to_row,
         output_filename=dest_file,
     )
-    print(f"Wrote {len(saved_tracks)} tracks to file")
+    rprint(f"[green]Wrote[/green] {len(saved_tracks)} tracks to {dest_file}")
 
 
 def write_saved_albums_to_git_repo(
@@ -280,7 +289,7 @@ def write_saved_albums_to_git_repo(
         item_to_row_lambda=outputfileutils.album_to_row,
         output_filename=dest_file,
     )
-    print(f"Wrote {len(saved_albums)} albums to file")
+    rprint(f"[green]Wrote[/green] {len(saved_albums)} albums to {dest_file}")
 
 
 def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name: Path):
@@ -301,6 +310,7 @@ def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name:
 
     # Keep track of skipped playlists
     skipped_playlists = []
+    total_playlists_backed_up = 0
 
     # Snapshot the contents of each playlist too
     for playlist in playlists.values():
@@ -324,9 +334,14 @@ def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name:
             # a Unicode character that looks just like a slash
             output_filename=playlist_tracks_file,
         )
+        total_playlists_backed_up += 1
 
     # Print summary of skipped playlists with rich styling
     if skipped_playlists:
         rprint(f"\n[yellow]Skipped {len(skipped_playlists)} empty playlists:[/yellow]")
         for playlist_name in sorted(skipped_playlists):
             rprint(f"[red]  • {playlist_name}[/red]")
+
+    rprint(
+        f"[green]Successfully backed up[/green] {total_playlists_backed_up} playlists"
+    )

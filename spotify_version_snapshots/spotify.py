@@ -15,6 +15,7 @@ API_REQUEST_SLEEP_TIME_SEC = 0.5
 # it can fetch at a time
 API_REQUEST_LIMIT = 50
 
+
 def get_liked_songs(sp_client: spotipy.Spotify) -> dict:
     liked_songs = {}
     results = sp_client.current_user_saved_tracks(API_REQUEST_LIMIT)
@@ -36,17 +37,20 @@ def get_liked_songs(sp_client: spotipy.Spotify) -> dict:
             results = sp_client.next(results)
         else:
             break
-    
+
     print(f"Fetched {total_count} liked songs")
 
     return liked_songs
 
-def get_tracks_from_playlist(sp_client: spotipy.Spotify, playlist, test_mode: bool = False) -> dict:
+
+def get_tracks_from_playlist(
+    sp_client: spotipy.Spotify, playlist, test_mode: bool = False
+) -> dict:
     playlist_tracks = {}
     results = sp_client.playlist_tracks(
         playlist_id=playlist["id"],
         fields="items(added_at,added_by(id),track(name,id,artists(name),album(name,id))),next,total",
-        limit=API_REQUEST_LIMIT
+        limit=API_REQUEST_LIMIT,
     )
 
     while True:
@@ -73,6 +77,7 @@ def get_tracks_from_playlist(sp_client: spotipy.Spotify, playlist, test_mode: bo
 
     return playlist_tracks
 
+
 def get_saved_albums(sp_client: spotipy.Spotify, test_mode: bool = False) -> dict:
     saved_albums = {}
     results = sp_client.current_user_saved_albums(API_REQUEST_LIMIT)
@@ -96,6 +101,7 @@ def get_saved_albums(sp_client: spotipy.Spotify, test_mode: bool = False) -> dic
             break
 
     return saved_albums
+
 
 def get_playlists(sp_client: spotipy.Spotify, test_mode: bool = False) -> dict:
     saved_playlists = {}
@@ -121,13 +127,14 @@ def get_playlists(sp_client: spotipy.Spotify, test_mode: bool = False) -> dict:
 
     return saved_playlists
 
+
 def create_spotify_client(client_id: str, client_secret: str) -> spotipy.Spotify:
     """Create and return an authenticated Spotify client.
-    
+
     Args:
         client_id: Spotify API client ID
         client_secret: Spotify API client secret
-        
+
     Returns:
         An authenticated Spotify client instance
     """
@@ -151,8 +158,9 @@ def create_spotify_client(client_id: str, client_secret: str) -> spotipy.Spotify
     )
 
     # Spotipy does not set the permissions on the cache file correctly, so we need to do it manually
-    chmod(cache_path , 0o600)
+    chmod(cache_path, 0o600)
     return client
+
 
 #####
 # Wrappers for use in main
@@ -171,7 +179,9 @@ def write_liked_songs_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_nam
     print(f"Wrote {len(saved_tracks)} tracks to file")
 
 
-def write_saved_albums_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name: str):
+def write_saved_albums_to_git_repo(
+    sp_client: spotipy.Spotify, snapshots_repo_name: str
+):
     saved_albums = get_saved_albums(sp_client)
     outputfileutils.write_to_file(
         data=saved_albums,
@@ -182,10 +192,11 @@ def write_saved_albums_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_na
     )
     print(f"Wrote {len(saved_albums)} albums to file")
 
+
 def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name: str):
     # Playlists are a bit more complicated. Start by fetching all playlists the # user owns or is subscribed to
     playlists = get_playlists(sp_client)
-    # Eventually we'll fetch all the songs on those playlists and snapshot those too. 
+    # Eventually we'll fetch all the songs on those playlists and snapshot those too.
     # But for now, just list the playlists in the library
     outputfileutils.write_to_file(
         data=playlists,

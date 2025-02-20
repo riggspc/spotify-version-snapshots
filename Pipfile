@@ -8,6 +8,7 @@ spotipy = "*"
 gitpython = "*"
 click = "*"
 rich = "*"
+black = "*"
 
 [dev-packages]
 black = "*"      # For code formatting

@@ -39,54 +39,58 @@ API_REQUEST_LIMIT = 50
 
 @click.command()
 @click.option(
-    '-p', '--prod-run',
+    "-p",
+    "--prod-run",
     is_flag=True,
     default=False,
-    help='Runs the "real" version of the script, fetching everything and writing to the "real" snapshots repo instead of a test one.'
+    help='Runs the "real" version of the script, fetching everything and writing to the "real" snapshots repo instead of a test one.',
 )
 @click.option(
-    '-n', '--no-commit',
+    "-n",
+    "--no-commit",
     is_flag=True,
     default=False,
-    help='When present, will run the entire script but not commit the results, leaving the repo dirty for manual committing later.'
+    help="When present, will run the entire script but not commit the results, leaving the repo dirty for manual committing later.",
 )
 @click.option(
-    '--backup-all',
+    "--backup-all",
     is_flag=True,
     default=False,
-    help='Backup all library data, including liked songs, saved albums, and playlists.'
+    help="Backup all library data, including liked songs, saved albums, and playlists.",
 )
 @click.option(
-    '--backup-liked-songs',
+    "--backup-liked-songs", is_flag=True, default=False, help="Backup liked songs only."
+)
+@click.option(
+    "--backup-saved-albums",
     is_flag=True,
     default=False,
-    help='Backup liked songs only.'
+    help="Backup saved albums only.",
 )
 @click.option(
-    '--backup-saved-albums',
-    is_flag=True,
-    default=False,
-    help='Backup saved albums only.'
+    "--backup-playlists", is_flag=True, default=False, help="Backup playlists only."
 )
 @click.option(
-    '--backup-playlists',
-    is_flag=True,
-    default=False,
-    help='Backup playlists only.'
-)
-@click.option(
-    '--pretty_print',
+    "--pretty_print",
     type=click.Path(exists=True),
     required=False,
-    help='Path to a file to print the TSV data of.'
+    help="Path to a file to print the TSV data of.",
 )
-
-def main(prod_run, no_commit, backup_all, backup_liked_songs, backup_saved_albums, backup_playlists, pretty_print):
+def main(
+    prod_run,
+    no_commit,
+    backup_all,
+    backup_liked_songs,
+    backup_saved_albums,
+    backup_playlists,
+    pretty_print,
+):
     """Fetch and snapshot Spotify library data."""
-    
+
     # Handle pretty print request if specified
     if pretty_print:
         from spotify_version_snapshots import outputfileutils
+
         outputfileutils.pretty_print_tsv_table(pretty_print)
         return
 
@@ -123,4 +127,4 @@ def main(prod_run, no_commit, backup_all, backup_liked_songs, backup_saved_album
 
 
 if __name__ == "__main__":
-    main() 
+    main()

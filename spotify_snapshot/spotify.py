@@ -1,4 +1,4 @@
-from spotify_version_snapshots import outputfileutils, credentials
+from spotify_version_snapshots import outputfileutils, env_utils
 from spotify_version_snapshots.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
@@ -235,8 +235,8 @@ def create_spotify_client() -> spotipy.Spotify:
     Returns:
         An authenticated Spotify client instance
     """
-    client_id = credentials.get_required_env_var("SPOTIFY_BACKUP_CLIENT_ID")
-    client_secret = credentials.get_required_env_var("SPOTIFY_BACKUP_CLIENT_SECRET")
+    client_id = env_utils.get_required_env_var("SPOTIFY_BACKUP_CLIENT_ID")
+    client_secret = env_utils.get_required_env_var("SPOTIFY_BACKUP_CLIENT_SECRET")
 
     base_cache_path = Path(getenv("XDG_CACHE_HOME", Path.home() / ".cache"))
     cache_path = base_cache_path / "spotify-backup/.auth_cache"

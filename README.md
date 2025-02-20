@@ -1,15 +1,12 @@
-# spotify-version-snapshots
+# `spotify-snapshot`
 
-Take snapshots of the state of your Spotify library/playlists/etc. Will
-eventually be able to output these snapshots in a format understood by version
-control, essentially giving you to ability to track your Spotify world as it
-evolves over time.
+Easily snapshot the state of your `Spotify` library/playlists/etc, and store it in version control.
 
-_This code is hacky, maybe it'll be cleaned up later_
+If Spotify ever disappears, you'll have a backup of your music library. And you'll have the ability to track your Spotify world as it evolves over time.
 
 ## Configuration
 
-1. Create a spotify app at https://developer.spotify.com/dashboard/applications
+1. Create a `Spotify` app at https://developer.spotify.com/dashboard/applications
 2. Set the callback URL to `http://localhost:9999/callback`
 3. Copy the client ID and client secret
 4. Set them as environment variables:
@@ -22,5 +19,9 @@ export SPOTIFY_BACKUP_CLIENT_SECRET=<your-client-secret>
 ## Usage
 
 ```bash
-python3 -m spotify_version_snapshots
+$ git clone git@github.com:alichtman/spotify-snapshot.git
+$ cd spotify-snapshot
+$ python3 -m spotify_snapshot
 ```
+
+> TODO: Upload to pypi

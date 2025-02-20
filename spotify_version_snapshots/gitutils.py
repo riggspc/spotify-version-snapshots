@@ -10,7 +10,7 @@ FILENAMES = constants.FILENAMES
 
 def get_repo_name(is_test_mode: bool) -> str:
     if is_test_mode:
-        return "TEST-REPO"
+        return "/tmp/SPOTIFY-VERSION-SNAPSHOTS-TEST-REPO"
     else:
         return "spotify-snapshots-repo"
 
@@ -18,11 +18,15 @@ def get_repo_name(is_test_mode: bool) -> str:
 def setup_git_repo_if_needed(is_test_mode) -> None:
     repo_name = get_repo_name(is_test_mode)
     try:
-        my_repo = git.Repo(repo_name)
-        print("Found existing repo")
+        git.Repo(repo_name)
+        rprint(
+            f"[yellow]Found existing repo at[/yellow] [green][bold]{repo_name}[/bold][/green]"
+        )
     except NoSuchPathError as e:
-        print("No repo, making a new one")
-        new_repo = git.Repo.init(repo_name)
+        rprint(
+            f"[yellow]No repo found, making a new one at[/yellow] [green][bold]{repo_name}[/bold][/green]"
+        )
+        git.Repo.init(repo_name)
 
 
 # Assumes repo already exists etc
@@ -39,81 +43,75 @@ def commit_files(is_test_mode) -> None:
     # otherwise
     commit = repo.index.commit("temp")
     commit_message = get_commit_message_for_amending(commit)
+    rprint(
+        f"[green]Commit info:[/green]\n\n[yellow][bold]{commit_message}[/bold][/yellow]"
+    )
     repo.git.commit("--amend", "-m", commit_message)
+    rprint("[green]Changes committed. All done![/green]")
 
 
 def get_commit_message_for_amending(commit: Commit) -> str:
+    """
+    Generate a contextually appropriate commit message (depending on whether this is the first commit or not)
+    If it is the first commit, the git commit is a status report on how many playlists were backed up, how many tracks per playlist, and how many liked songs were backed up
+    For all commits after, the git commit is a status report on how many playlists were added, removed, and how many tracks were added, removed
+    """
     is_first_commit = len(commit.parents) == 0
+    current_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
     if is_first_commit:
-        commit_title = "Initial Spotify Snapshot"
+        commit_title = f"Initial Spotify Snapshot - {current_time}"
     else:
-        commit_title = (
-            f'Spotify Snapshot - {datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}'
-        )
+        commit_title = f"Spotify Snapshot - {current_time}"
     stats = commit.stats
-    playlist_additions = 0
-    playlist_removals = 0
+    playlist_stats = {}
+    liked_songs_count = 0
+
+    # Process playlist files and liked songs
     for changed_file in stats.files:
         if changed_file in FILENAMES.values():
+            if changed_file == FILENAMES["liked_songs"]:
+                file_stats = stats.files[changed_file]
+                liked_songs_count = (
+                    file_stats["insertions"] - 1
+                    if is_first_commit
+                    else file_stats["insertions"]
+                )
             continue
-        playlist_additions += stats.files[changed_file]["insertions"]
-        playlist_removals += stats.files[changed_file]["deletions"]
+
+        # This is a playlist file
+        file_stats = stats.files[changed_file]
+        playlist_name = changed_file.split("/")[-1].replace(".tsv", "")
+        if is_first_commit:
+            playlist_stats[playlist_name] = (
+                file_stats["insertions"] - 1
+            )  # Subtract header
+        else:
+            playlist_stats[playlist_name] = {
+                "added": file_stats["insertions"],
+                "removed": file_stats["deletions"],
+            }
+
     commit_details = []
-    if FILENAMES["tracks"] in stats.files:
-        track_stats = stats.files[FILENAMES["tracks"]]
-        if is_first_commit:
-            # Subtract 1 to not count the first line (eg. the header in the TSV)
-            commit_details.append(f"Tracks In Library: {track_stats['insertions'] - 1}")
-        else:
-            commit_details.extend(
-                [
-                    f"Added Tracks: {track_stats['insertions']}",
-                    f"Removed Tracks: {track_stats['deletions']}",
-                ]
-            )
-    if FILENAMES["albums"] in stats.files:
-        album_stats = stats.files[FILENAMES["albums"]]
-        if is_first_commit:
-            # Subtract 1 to not count the first line (eg. the header in the TSV)
-            commit_details.append(f"Albums In Library: {album_stats['insertions'] - 1}")
-        else:
-            commit_details.extend(
-                [
-                    f"Added Albums: {album_stats['insertions']}",
-                    f"Removed Albums: {album_stats['deletions']}",
-                ]
-            )
-    if FILENAMES["playlists"] in stats.files:
-        playlist_stats = stats.files[FILENAMES["playlists"]]
-        if is_first_commit:
-            # Subtract 1 to not count the first line (eg. the header in the TSV)
-            commit_details.append(
-                f"Playlists In Library: {playlist_stats['insertions'] - 1}"
-            )
-        else:
-            commit_details.extend(
-                [
-                    f"Added Playlists: {playlist_stats['insertions']}",
-                    f"Removed Playlists: {playlist_stats['deletions']}",
-                ]
-            )
     if is_first_commit:
-        num_playlists = 0
-        # This file should always exist in the first commit, but just be safe
-        if stats.files["playlists.tsv"]:
-            # Subtract 1 to not count the first line (eg. the header in the TSV)
-            num_playlists = stats.files["playlists.tsv"]["insertions"] - 1
-        commit_details.append(
-            f"Tracks Across All Playlists {playlist_additions - num_playlists}"
-        )
+        commit_details.append(f"Liked Songs: {liked_songs_count}")
+        commit_details.append(f"Number of Playlists: {len(playlist_stats)}")
+        commit_details.append("\nPlaylist Details:")
+        for playlist, track_count in sorted(playlist_stats.items()):
+            commit_details.append(f"- {playlist}: {track_count} tracks")
     else:
-        commit_details.extend(
-            [
-                f"Total Additions Across Playlists: {playlist_additions}",
-                f"Total Removals Across Playlists: {playlist_removals}",
-            ]
-        )
+        if liked_songs_count > 0:
+            commit_details.append(f"Liked Songs Changes: +{liked_songs_count}")
+
+        commit_details.append("\nPlaylist Changes:")
+        has_changes = False
+        for playlist, changes in sorted(playlist_stats.items()):
+            if changes["added"] > 0 or changes["removed"] > 0:
+                has_changes = True
+                commit_details.append(
+                    f"- {playlist}: +{changes['added']} -{changes['removed']}"
+                )
+        if not has_changes:
+            commit_details.append("- None")
 
     commit_message_body = "\n".join(commit_details)
-
     return "\n\n".join([commit_title, commit_message_body])

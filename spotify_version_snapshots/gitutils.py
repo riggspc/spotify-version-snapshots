@@ -149,7 +149,7 @@ def get_commit_message_for_amending(
 
     # Process playlist files and liked songs
     for changed_file in stats.files:
-        print(f"changed_file: {changed_file}")
+        # print(f"changed_file: {changed_file}")
         if (output_manager.liked_songs_filename) != changed_file:
             continue
 
@@ -198,10 +198,52 @@ def get_commit_message_for_amending(
         for playlist, track_count in sorted(playlist_stats.items()):
             commit_details.append(f"- {playlist}: {track_count} tracks")
     else:
-        if deleted_playlists:
+        # Add detection of renamed playlists
+        renamed_playlists = []
+        renamed_playlist_ids = set()  # Track IDs of renamed playlists
+
+        # Compare with parent commit to get changes
+        for diff_item in commit.diff(commit.parents[0] if commit.parents else None):
+            if diff_item.renamed_file and diff_item.a_path.startswith("playlists/"):
+                old_name = diff_item.a_path.split("/")[-1].split(" (")[0]
+                new_name = diff_item.b_path.split("/")[-1].split(" (")[0]
+                # Extract playlist ID from the filename
+                playlist_id = diff_item.a_path.split("(")[-1].rstrip(").tsv")
+                renamed_playlists.append((old_name, new_name))
+                renamed_playlist_ids.add(playlist_id)
+
+        # Filter out renamed playlists from deleted_playlists
+        filtered_deleted_playlists = [
+            playlist
+            for playlist in deleted_playlists
+            if playlist.id not in renamed_playlist_ids
+        ]
+
+        # Compare with parent commit to get changes
+        created_playlists = []
+        for diff_item in commit.diff(commit.parents[0] if commit.parents else None):
+            if (
+                not diff_item.renamed_file
+                and diff_item.new_file
+                and diff_item.b_path.startswith("playlists/")
+            ):
+                playlist_name = diff_item.b_path.split("/")[-1].split(" (")[0]
+                created_playlists.append(playlist_name)
+
+        if created_playlists:
+            commit_details.append("\nCreated Playlists:")
+            for playlist in created_playlists:
+                commit_details.append(f"- {playlist}")
+
+        if filtered_deleted_playlists:
             commit_details.append("\nDeleted Playlists:")
-            for playlist in deleted_playlists:
+            for playlist in filtered_deleted_playlists:
                 commit_details.append(f"- {playlist.name}")
+
+        if renamed_playlists:
+            commit_details.append("\nRenamed Playlists:")
+            for old_name, new_name in renamed_playlists:
+                commit_details.append(f"- {old_name} → {new_name}")
 
         commit_details.append("\nChanged Playlists:")
         has_changes = False
@@ -212,7 +254,7 @@ def get_commit_message_for_amending(
                     f"- {playlist}: +{changes['added']} -{changes['removed']}"
                 )
         if not has_changes:
-            commit_details.append("- None")
+            commit_details.pop()
 
     commit_message_body = "\n".join(commit_details)
     return "\n\n".join([commit_title, commit_message_body])

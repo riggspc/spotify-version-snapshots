@@ -129,7 +129,7 @@ def _fetch_paginated_tracks(
         result_items: List[SpotifyPlaylistTrackItem] = results["items"]
         total_tracks_fetched += len(result_items)
         rprint(
-            f"[green]Fetched[/green] {total_tracks_fetched} / {results['total']} tracks"
+            f"[green]Fetched[/green] {total_tracks_fetched} / {results['total']} [green]tracks[/green]"
         )
 
         for item in result_items:
@@ -163,7 +163,9 @@ def get_tracks_from_playlist(
     sp_client: spotipy.Spotify,
     playlist: SpotifyPlaylist,
 ) -> dict:
-    rprint(f"[blue]Getting tracks from playlist[/blue] {playlist['name']}...")
+    rprint(
+        f"[blue]Getting tracks from playlist[/blue] [green][bold]{playlist['name']}[/bold][/green]..."
+    )
     if not "Lines" in playlist["name"]:
         return {}
 
@@ -181,7 +183,7 @@ def get_saved_albums(sp_client: spotipy.Spotify) -> dict:
 
     while True:
         result_items = results["items"]
-        rprint(f"[green]Fetched[/green] {len(result_items)} albums")
+        rprint(f"[green]Fetched[/green] {len(result_items)} [green]albums[/green]")
 
         for item in result_items:
             saved_albums[item["album"]["id"]] = item

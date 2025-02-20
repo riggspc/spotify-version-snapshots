@@ -1,5 +1,5 @@
 import click
-
+from rich import print as rprint
 from spotify_version_snapshots import gitutils, spotify, outputfileutils
 
 API_REQUEST_SLEEP_TIME_SEC = 0.5
@@ -90,9 +90,9 @@ def main(
     is_test_mode = not prod_run
 
     if is_test_mode:
-        print("Running in test mode...")
+        rprint("[yellow]Running in test mode[/yellow]...")
     else:
-        print("*** RUNNING IN PROD MODE ***")
+        rprint("[yellow]*** RUNNING IN PROD MODE ***[/yellow]")
 
     sp_client = spotify.create_spotify_client()
     gitutils.setup_git_repo_if_needed(is_test_mode)

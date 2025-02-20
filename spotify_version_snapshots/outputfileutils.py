@@ -1,3 +1,4 @@
+from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
 from pathlib import Path
@@ -35,13 +36,15 @@ def write_to_file(
     dict, and then outputs each item to the file specified. Overwrites any such
     existing file. Will create directories if needed.
     """
-    print(f"Writing to {output_filename}")
+    rprint(f"[blue]Writing to[/blue] [green][bold]{output_filename}[/bold][/green]...")
     # Get the directory path
     dir_path = output_filename.parent
 
     # Only try to create directories if there is actually a directory path
     if dir_path:
-        print(f"Creating directory {dir_path}")
+        rprint(
+            f"[blue]Creating directory[/blue] [green][bold]{dir_path}[/bold][/green]..."
+        )
         os.makedirs(dir_path, exist_ok=True)
     else:
         print("No directory path, skipping directory creation")

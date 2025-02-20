@@ -3,8 +3,54 @@ import spotipy
 import time
 from os import getenv, chmod
 from pathlib import Path
+from dataclasses import dataclass
+from typing import List, Optional, Dict
+from rich import print as rprint
+from rich.style import Style
 
 FILENAMES = constants.FILENAMES
+
+
+@dataclass
+class SpotifyImage:
+    height: Optional[int]
+    width: Optional[int]
+    url: str
+
+
+@dataclass
+class SpotifyUser:
+    display_name: str
+    external_urls: Dict[str, str]
+    href: str
+    id: str
+    type: str
+    uri: str
+
+
+@dataclass
+class SpotifyTracks:
+    href: str
+    total: int
+
+
+@dataclass
+class SpotifyPlaylist:
+    collaborative: bool
+    description: str
+    external_urls: Dict[str, str]
+    href: str
+    id: str
+    images: List[SpotifyImage]
+    name: str
+    owner: SpotifyUser
+    primary_color: Optional[str]
+    public: bool
+    snapshot_id: str
+    tracks: SpotifyTracks
+    type: str
+    uri: str
+
 
 #####
 # Spotify Operations

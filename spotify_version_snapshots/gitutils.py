@@ -185,7 +185,7 @@ def get_commit_message_for_amending(
     commit_details = []
     # Always add Liked Songs section first if there is a liked songs file in the backup
     if liked_songs_add_remove_stats is not None:
-        commit_details.append(f"Liked Songs: {liked_songs_count} tracks")
+        commit_details.append(f"Liked Songs        : {liked_songs_count} tracks")
 
         if not is_first_commit:
             commit_details.append(

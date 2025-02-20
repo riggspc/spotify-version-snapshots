@@ -4,8 +4,8 @@ from rich import print as rprint
 import os
 from git import NoSuchPathError, Commit
 from pathlib import Path
-from spotify_version_snapshots import spotify
-from spotify_version_snapshots.spotify_snapshot_output_manager import (
+from spotify_snapshot import spotify
+from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
 

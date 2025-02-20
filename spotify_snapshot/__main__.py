@@ -1,7 +1,7 @@
 import click
 from rich import print as rprint
-from spotify_version_snapshots import gitutils, spotify, outputfileutils
-from spotify_version_snapshots.spotify_snapshot_output_manager import (
+from spotify_snapshot import gitutils, spotify, outputfileutils
+from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
 from pathlib import Path

@@ -6,9 +6,9 @@ name = "pypi"
 [packages]
 spotipy = "*"
 gitpython = "*"
-click = "*"
 rich = "*"
 black = "*"
+click = "*"
 
 [dev-packages]
 black = "*"      # For code formatting

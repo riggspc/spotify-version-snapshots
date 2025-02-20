@@ -1,5 +1,5 @@
-from spotify_version_snapshots import outputfileutils, env_utils
-from spotify_version_snapshots.spotify_snapshot_output_manager import (
+from spotify_snapshot import outputfileutils, env_utils
+from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
 import spotipy

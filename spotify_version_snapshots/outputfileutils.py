@@ -1,3 +1,6 @@
+from rich.console import Console
+from rich.table import Table
+from pathlib import Path
 import csv
 import os
 
@@ -81,3 +84,15 @@ def playlist_to_row(item) -> list:
         item["collaborative"],
         item["id"],
     ]
+
+
+def pretty_print_tsv_table(tsv_data_path: Path) -> None:
+    with open(tsv_data_path, "r") as tsv_file:
+        tsv_data = [line.strip().split("\t") for line in tsv_file.readlines()]
+    table = Table(show_header=True, header_style="bold magenta")
+    for header in tsv_data[0]:
+        table.add_column(header)
+    for row in tsv_data[1:]:
+        table.add_row(*row)
+    console = Console()
+    console.print(table)

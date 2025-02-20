@@ -7,6 +7,7 @@ name = "pypi"
 spotipy = "*"
 gitpython = "*"
 click = "*"
+rich = "*"
 
 [dev-packages]
 black = "*"      # For code formatting
@@ -14,4 +15,4 @@ flake8 = "*"     # For linting
 mypy = "*"       # For type checking
 
 [requires]
-python_version = "3.12" 
+python_version = "3.12"

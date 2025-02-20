@@ -1,4 +1,3 @@
-import time
 import click
 
 from spotify_version_snapshots import gitutils, credentials, constants, spotify
@@ -75,9 +74,22 @@ API_REQUEST_LIMIT = 50
     default=False,
     help='Backup playlists only.'
 )
+@click.option(
+    '--pretty_print',
+    type=click.Path(exists=True),
+    required=False,
+    help='Path to a file to print the TSV data of.'
+)
 
-def main(prod_run, no_commit, backup_all, backup_liked_songs, backup_saved_albums, backup_playlists):
+def main(prod_run, no_commit, backup_all, backup_liked_songs, backup_saved_albums, backup_playlists, pretty_print):
     """Fetch and snapshot Spotify library data."""
+    
+    # Handle pretty print request if specified
+    if pretty_print:
+        from spotify_version_snapshots import outputfileutils
+        outputfileutils.pretty_print_tsv_table(pretty_print)
+        return
+
     is_test_mode = not prod_run
 
     if is_test_mode:

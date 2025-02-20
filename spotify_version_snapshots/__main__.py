@@ -112,11 +112,11 @@ def main(
         spotify.write_playlists_to_git_repo(sp_client, snapshots_repo_name)
 
     if no_commit:
-        print("Skipping committing changes, leaving in repo")
+        rprint(
+            "[yellow]Skipping committing changes, leaving in repo dirty for manual committing later[/yellow]"
+        )
     else:
-        print("Committing changes...")
         gitutils.commit_files(is_test_mode)
-        print("Changes committed. All done!")
 
 
 if __name__ == "__main__":

@@ -40,14 +40,16 @@ def write_to_file(
     # Get the directory path
     dir_path = output_filename.parent
 
-    # Only try to create directories if there is actually a directory path
-    if dir_path:
+    # Only try to create directories if they don't already exist
+    if not dir_path.exists():
         rprint(
             f"[blue]Creating directory[/blue] [green][bold]{dir_path}[/bold][/green]..."
         )
         os.makedirs(dir_path, exist_ok=True)
     else:
-        print("No directory path, skipping directory creation")
+        rprint(
+            f"[yellow]Directory already exists[/yellow] [green][bold]{dir_path}[/bold][/green]"
+        )
 
     sorted_list = sorted(list(data.values()), key=sort_lambda)
     output_rows = [header_row]

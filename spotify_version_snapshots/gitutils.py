@@ -39,8 +39,9 @@ def commit_files(is_test_mode) -> None:
     except ValueError:
         is_first_commit = True
 
+    deleted_playlists = []
     if not is_first_commit:
-        remove_deleted_playlists(repo, is_test_mode)
+        deleted_playlists = remove_deleted_playlists(repo, is_test_mode)
 
     # Check if there are any changes to commit
     if not repo.is_dirty(untracked_files=True):
@@ -51,7 +52,7 @@ def commit_files(is_test_mode) -> None:
     # A temp commit is needed to get stats etc - the library doesn't support it
     # otherwise
     commit = repo.index.commit("temp")
-    commit_message = get_commit_message_for_amending(commit)
+    commit_message = get_commit_message_for_amending(repo, commit, deleted_playlists)
     rprint(
         f"[green]Commit info:[/green]\n\n[yellow][bold]{commit_message}[/bold][/yellow]"
     )
@@ -66,17 +67,13 @@ def get_deleted_playlists(
     Returns a list of playlists that were deleted in the working directory changes
     """
     playlists_file = get_repo_name(is_test_mode) / FILENAMES["playlists"]
-    print(f"playlists_file: {playlists_file}")
 
     # Get the working directory changes for the playlists file
     deleted_lines = []
     diff = repo.head.commit.diff(None)
-    print(f"diff: {diff}")
     for diff_item in diff:
-        print(f"Comparing {diff_item.a_path} with {FILENAMES['playlists']}")
         # Convert both paths to strings for comparison
         if str(FILENAMES["playlists"]) in diff_item.a_path:
-            print("Found matching file!")
             # Read the old version of the file from the last commit
             old_content = (
                 diff_item.a_blob.data_stream.read().decode("utf-8").splitlines()
@@ -89,7 +86,7 @@ def get_deleted_playlists(
 
             # Find lines that were in the old content but not in the new content
             deleted_lines = [line for line in old_content if line not in new_content]
-            rprint(f"[red]Found {len(deleted_lines)} deleted playlists[/red]")
+            rprint(f"\n[red]Found {len(deleted_lines)} deleted playlists[/red]")
 
     # Get the playlists that were deleted
     deleted_playlists = []
@@ -106,26 +103,32 @@ def get_deleted_playlists(
     return deleted_playlists
 
 
-def remove_deleted_playlists(repo: git.Repo, is_test_mode: bool) -> None:
+def remove_deleted_playlists(
+    repo: git.Repo, is_test_mode: bool
+) -> list[spotify.DeletedPlaylist]:
     """
     Removes the playlists that were deleted in the staged changes
+    Returns: List of deleted playlists
     """
     try:
         repo.head.commit  # Check if there are any commits
     except ValueError:  # No commits yet
         rprint("[yellow]First commit detected. No playlists to delete.[/yellow]")
-        return
+        return []
 
     deleted_playlists = get_deleted_playlists(repo, is_test_mode)
     for playlist in deleted_playlists:
         file_path_to_remove = spotify.get_playlist_file_name(
             get_repo_name(is_test_mode), playlist
         )
-        rprint(f"[red]Deleting[/red] {file_path_to_remove}")
+        rprint(f"[red]Deleting [bold]{file_path_to_remove}[/bold][/red]")
         os.remove(file_path_to_remove)
+    return deleted_playlists
 
 
-def get_commit_message_for_amending(commit: Commit) -> str:
+def get_commit_message_for_amending(
+    repo: git.Repo, commit: Commit, deleted_playlists: list[spotify.DeletedPlaylist]
+) -> str:
     """
     Generate a contextually appropriate commit message (depending on whether this is the first commit or not)
     If it is the first commit, the git commit is a status report on how many playlists were backed up, how many tracks per playlist, and how many liked songs were backed up
@@ -139,18 +142,24 @@ def get_commit_message_for_amending(commit: Commit) -> str:
         commit_title = f"Spotify Snapshot - {current_time}"
     stats = commit.stats
     playlist_stats = {}
-    liked_songs_count = 0
+    liked_songs_add_remove_stats = None
 
     # Process playlist files and liked songs
     for changed_file in stats.files:
-        if changed_file in FILENAMES.values():
-            if changed_file == FILENAMES["liked_songs"]:
-                file_stats = stats.files[changed_file]
-                liked_songs_count = (
+        print(f"changed_file: {changed_file}")
+        if str(FILENAMES["liked_songs"]) == changed_file:
+            file_stats = stats.files[changed_file]
+            if is_first_commit:
+                liked_songs_add_remove_stats = (
                     file_stats["insertions"] - 1
-                    if is_first_commit
-                    else file_stats["insertions"]
-                )
+                )  # Subtract header
+            else:
+                liked_songs_add_remove_stats = {
+                    "added": file_stats["insertions"],
+                    "removed": file_stats["deletions"],
+                }
+            continue
+        elif changed_file in FILENAMES.values():
             continue
 
         # This is a playlist file
@@ -166,18 +175,35 @@ def get_commit_message_for_amending(commit: Commit) -> str:
                 "removed": file_stats["deletions"],
             }
 
+    # If liked songs file is present, grab the count of tracks
+    liked_songs_count = None
+    liked_songs_file = repo.working_dir / FILENAMES["liked_songs"]
+    if os.path.exists(liked_songs_file):
+        with open(liked_songs_file, "r", encoding="utf-8") as f:
+            liked_songs_count = len(f.readlines()) - 1
+
     commit_details = []
+    # Always add Liked Songs section first if there is a liked songs file in the backup
+    if liked_songs_add_remove_stats is not None:
+        commit_details.append(f"Liked Songs: {liked_songs_count} tracks")
+
+        if not is_first_commit:
+            commit_details.append(
+                f"Liked Songs Changes: +{liked_songs_add_remove_stats['added']}, -{liked_songs_add_remove_stats['removed']}"
+            )
+
     if is_first_commit:
-        commit_details.append(f"Liked Songs: {liked_songs_count}")
         commit_details.append(f"Number of Playlists: {len(playlist_stats)}")
         commit_details.append("\nPlaylist Details:")
         for playlist, track_count in sorted(playlist_stats.items()):
             commit_details.append(f"- {playlist}: {track_count} tracks")
     else:
-        if liked_songs_count > 0:
-            commit_details.append(f"Liked Songs Changes: +{liked_songs_count}")
+        if deleted_playlists:
+            commit_details.append("\nDeleted Playlists:")
+            for playlist in deleted_playlists:
+                commit_details.append(f"- {playlist.name}")
 
-        commit_details.append("\nPlaylist Changes:")
+        commit_details.append("\nChanged Playlists:")
         has_changes = False
         for playlist, changes in sorted(playlist_stats.items()):
             if changes["added"] > 0 or changes["removed"] > 0:

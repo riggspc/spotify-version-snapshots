@@ -3,16 +3,18 @@ from datetime import datetime
 from rich import print as rprint
 import os
 from git import NoSuchPathError, Commit
-from spotify_version_snapshots import constants, spotify
+from pathlib import Path
+from spotify_version_snapshots import spotify
+from spotify_version_snapshots.spotify_snapshot_output_manager import (
+    SpotifySnapshotOutputManager,
+)
 
-FILENAMES = constants.FILENAMES
 
-
-def get_repo_name(is_test_mode: bool) -> str:
+def get_repo_name(is_test_mode: bool) -> Path:
     if is_test_mode:
-        return "/tmp/SPOTIFY-VERSION-SNAPSHOTS-TEST-REPO"
+        return Path("/tmp/SPOTIFY-VERSION-SNAPSHOTS-TEST-REPO")
     else:
-        return "spotify-snapshots-repo"
+        return Path("spotify-snapshots-repo")
 
 
 def setup_git_repo_if_needed(is_test_mode) -> None:
@@ -66,20 +68,20 @@ def get_deleted_playlists(
     """
     Returns a list of playlists that were deleted in the working directory changes
     """
-    playlists_file = get_repo_name(is_test_mode) / FILENAMES["playlists"]
+    output_manager = SpotifySnapshotOutputManager.get_instance()
 
     # Get the working directory changes for the playlists file
     deleted_lines = []
     diff = repo.head.commit.diff(None)
     for diff_item in diff:
         # Convert both paths to strings for comparison
-        if str(FILENAMES["playlists"]) in diff_item.a_path:
+        if output_manager.playlists_index_filename in diff_item.a_path:
             # Read the old version of the file from the last commit
             old_content = (
                 diff_item.a_blob.data_stream.read().decode("utf-8").splitlines()
             )
             # Read the current version from the working directory
-            with open(playlists_file, "r", encoding="utf-8") as f:
+            with open(output_manager.playlists_index_path, "r", encoding="utf-8") as f:
                 new_content = f.read().splitlines()
 
             # TODO: Handle the case where the new version has no playlists
@@ -134,6 +136,7 @@ def get_commit_message_for_amending(
     If it is the first commit, the git commit is a status report on how many playlists were backed up, how many tracks per playlist, and how many liked songs were backed up
     For all commits after, the git commit is a status report on how many playlists were added, removed, and how many tracks were added, removed
     """
+    output_manager = SpotifySnapshotOutputManager.get_instance()
     is_first_commit = len(commit.parents) == 0
     current_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
     if is_first_commit:
@@ -147,23 +150,20 @@ def get_commit_message_for_amending(
     # Process playlist files and liked songs
     for changed_file in stats.files:
         print(f"changed_file: {changed_file}")
-        if str(FILENAMES["liked_songs"]) == changed_file:
-            file_stats = stats.files[changed_file]
-            if is_first_commit:
-                liked_songs_add_remove_stats = (
-                    file_stats["insertions"] - 1
-                )  # Subtract header
-            else:
-                liked_songs_add_remove_stats = {
-                    "added": file_stats["insertions"],
-                    "removed": file_stats["deletions"],
-                }
-            continue
-        elif changed_file in FILENAMES.values():
+        if (output_manager.liked_songs_filename) != changed_file:
             continue
 
-        # This is a playlist file
         file_stats = stats.files[changed_file]
+        if is_first_commit:
+            liked_songs_add_remove_stats = (
+                file_stats["insertions"] - 1
+            )  # Subtract header
+        else:
+            liked_songs_add_remove_stats = {
+                "added": file_stats["insertions"],
+                "removed": file_stats["deletions"],
+            }
+
         playlist_name = changed_file.split("/")[-1].replace(".tsv", "")
         if is_first_commit:
             playlist_stats[playlist_name] = (
@@ -177,7 +177,7 @@ def get_commit_message_for_amending(
 
     # If liked songs file is present, grab the count of tracks
     liked_songs_count = None
-    liked_songs_file = repo.working_dir / FILENAMES["liked_songs"]
+    liked_songs_file = output_manager.liked_songs_path
     if os.path.exists(liked_songs_file):
         with open(liked_songs_file, "r", encoding="utf-8") as f:
             liked_songs_count = len(f.readlines()) - 1

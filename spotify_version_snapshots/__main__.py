@@ -1,6 +1,10 @@
 import click
 from rich import print as rprint
 from spotify_version_snapshots import gitutils, spotify, outputfileutils
+from spotify_version_snapshots.spotify_snapshot_output_manager import (
+    SpotifySnapshotOutputManager,
+)
+from pathlib import Path
 
 API_REQUEST_SLEEP_TIME_SEC = 0.5
 # For albums, playlists, etc - the Spotify API has a (current) max of 50 things
@@ -97,6 +101,7 @@ def main(
     sp_client = spotify.create_spotify_client()
     gitutils.setup_git_repo_if_needed(is_test_mode)
     snapshots_repo_name = gitutils.get_repo_name(is_test_mode)
+    SpotifySnapshotOutputManager.initialize(snapshots_repo_name)
 
     # If no specific backup option is selected, default to backing up everything
     if not any([backup_all, backup_liked_songs, backup_saved_albums, backup_playlists]):

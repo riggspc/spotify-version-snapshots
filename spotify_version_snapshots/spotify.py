@@ -1,4 +1,7 @@
-from spotify_version_snapshots import outputfileutils, constants, credentials
+from spotify_version_snapshots import outputfileutils, credentials
+from spotify_version_snapshots.spotify_snapshot_output_manager import (
+    SpotifySnapshotOutputManager,
+)
 import spotipy
 import time
 from os import getenv, chmod
@@ -6,8 +9,6 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Optional, Dict
 from rich import print as rprint
-
-FILENAMES = constants.FILENAMES
 
 
 @dataclass
@@ -170,7 +171,7 @@ def get_tracks_from_playlist(
     playlist: SpotifyPlaylist,
 ) -> dict:
     rprint(
-        f"\n[blue]Getting tracks from playlist[/blue] [green][bold]{playlist['name']}[/bold][/green]"
+        f"\n[blue]Backing up playlist:[/blue] [yellow][bold]{playlist['name']}[/bold][/yellow]"
     )
     initial_results = sp_client.playlist_tracks(
         playlist_id=playlist["id"],
@@ -295,7 +296,8 @@ def write_liked_songs_to_git_repo(
     sp_client: spotipy.Spotify, snapshots_repo_name: Path
 ):
     liked_songs = get_liked_songs(sp_client)
-    dest_file = snapshots_repo_name / FILENAMES["liked_songs"]
+    output_manager = SpotifySnapshotOutputManager.get_instance()
+    dest_file = output_manager.get_full_liked_songs_path
     outputfileutils.write_to_file(
         data=liked_songs,
         sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),
@@ -312,7 +314,8 @@ def write_saved_albums_to_git_repo(
     sp_client: spotipy.Spotify, snapshots_repo_name: Path
 ):
     saved_albums = get_saved_albums(sp_client)
-    dest_file = snapshots_repo_name / FILENAMES["albums"]
+    output_manager = SpotifySnapshotOutputManager.get_instance()
+    dest_file = output_manager.albums_path
     outputfileutils.write_to_file(
         data=saved_albums,
         sort_lambda=lambda item: (item["added_at"], item["album"]["name"]),
@@ -330,16 +333,11 @@ def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name:
     Extracts a list of all playlists the user owns or is subscribed to, and writes them to a file. Then, for each playlist,
     it fetches all the tracks on the playlist and writes them to a separate file.
     """
-    # Playlists are a bit more complicated. Start by fetching all playlists the # user owns or is subscribed to
     playlists = get_playlists(sp_client)
-    # Eventually we'll fetch all the songs on those playlists and snapshot those too.
-    # But for now, just list the playlists in the library
-    # We will also use this file to track which playlists have been removed
-    playlists_file = snapshots_repo_name / FILENAMES["playlists"]
+    output_manager = SpotifySnapshotOutputManager.get_instance()
+    playlists_file = output_manager.playlists_index_path
     outputfileutils.write_to_file(
         data=playlists,
-        # Sorting by id seems weird but this is to make sure order stays stable
-        # even if a playlist is renamed etc
         sort_lambda=lambda item: item["id"],
         header_row=outputfileutils.PLAYLIST_HEADER_ROW,
         item_to_row_lambda=outputfileutils.playlist_to_row,

@@ -3,8 +3,6 @@ from rich.console import Console
 from rich.table import Table
 from pathlib import Path
 import csv
-import os
-
 from typing import Callable
 
 TRACK_HEADER_ROW = ["TRACK NAME", "TRACK ARTIST(S)", "ALBUM", "DATE ADDED", "TRACK ID"]
@@ -37,15 +35,6 @@ def write_to_file(
     existing file. Will create directories if needed.
     """
     rprint(f"[blue]Writing to[/blue] [green][bold]{output_filename}[/bold][/green]...")
-    # Get the directory path
-    dir_path = output_filename.parent
-
-    # Only try to create directories if they don't already exist
-    if not dir_path.exists():
-        rprint(
-            f"[blue]Creating directory[/blue] [green][bold]{dir_path}[/bold][/green]..."
-        )
-        os.makedirs(dir_path, exist_ok=True)
 
     sorted_list = sorted(list(data.values()), key=sort_lambda)
     output_rows = [header_row]

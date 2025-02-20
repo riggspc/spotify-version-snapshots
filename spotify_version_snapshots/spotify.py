@@ -170,7 +170,7 @@ def get_tracks_from_playlist(
     playlist: SpotifyPlaylist,
 ) -> dict:
     rprint(
-        f"[blue]Getting tracks from playlist[/blue] [green][bold]{playlist['name']}[/bold][/green]..."
+        f"[blue]Getting tracks from playlist[/blue] [green][bold]{playlist['name']}[/bold][/green]"
     )
     initial_results = sp_client.playlist_tracks(
         playlist_id=playlist["id"],

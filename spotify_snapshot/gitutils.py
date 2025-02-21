@@ -8,6 +8,7 @@ from spotify_snapshot import spotify
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
+from rich.prompt import Prompt
 from .config import SpotifySnapshotConfig
 
 _repo_instance = None
@@ -76,7 +77,14 @@ def setup_git_repo_if_needed(is_test_mode) -> None:
             git.Repo.init(repo_filepath)
 
 
-# Requires that setup_git_repo_if_needed has already been called
+def cleanup_repo():
+    """Clean up the git repository instance."""
+    global _repo_instance
+    if _repo_instance is not None:
+        _repo_instance.close()
+        _repo_instance = None
+
+
 def commit_files(is_test_mode) -> None:
     repo = get_repo(is_test_mode)
 
@@ -319,3 +327,42 @@ def set_remote_url(url: str, is_test_mode: bool) -> None:
     except ValueError:
         # Remote doesn't exist, create it
         repo.create_remote("origin", url)
+
+
+def maybe_git_push(
+    is_test_mode: bool, should_push_without_prompting_user: bool = False
+) -> None:
+    """Push changes to the remote repository.
+
+    Args:
+        is_test_mode: Whether running in test mode
+        should_prompt_user: If True, prompts the user to confirm the push
+    """
+    repo = get_repo(is_test_mode)
+
+    # Check if remote exists and has a URL configured
+    try:
+        remote = repo.remote("origin")
+        if not remote.urls:
+            rprint("[yellow]No remote URL configured. Skipping push.[/yellow]")
+            return
+    except ValueError:
+        rprint("[yellow]No remote configured. Skipping push.[/yellow]")
+        return
+
+    should_push = False
+    if not should_push_without_prompting_user:
+        response = Prompt.ask(
+            "\nPush changes to remote repository?", choices=["y", "N"], default="N"
+        )
+        should_push = response == "y"
+
+    if should_push:
+        try:
+            rprint("[yellow]Pushing changes to remote...[/yellow]")
+            repo.remotes.origin.push()
+            rprint(
+                f"[green]Successfully pushed changes to {repo.remotes.origin.url}![/green]"
+            )
+        except git.GitCommandError as e:
+            rprint(f"[red]Failed to push changes: {str(e)}[/red]")

@@ -94,6 +94,7 @@ def main(
     install,
     version,
     edit_config,
+    push,
 ):
     """Fetch and snapshot Spotify library data."""
 
@@ -125,7 +126,7 @@ def main(
         return
 
     # TODO: Add as custom name for --test, so we don't need to do reassingment
-    is_test_mode = test
+    is_test_mode: bool = test
 
     if is_test_mode:
         rprint("[yellow]Running in test mode[/yellow]...")
@@ -156,6 +157,8 @@ def main(
         spotify.write_playlists_to_git_repo(sp_client)
 
     gitutils.commit_files(is_test_mode)
+    gitutils.maybe_git_push(is_test_mode, should_prompt_user=True)
+    gitutils.cleanup_repo()
     exit(0)
 
 

@@ -26,8 +26,8 @@ The tool uses a TOML configuration file located at `$XDG_CONFIG_HOME/spotify-sna
 # Git remote URL for pushing snapshots (optional)
 git_remote_url = "git@github.com:username/spotify-snapshots.git"
 
-# Local directory for storing snapshots
-backup_dir = "/home/username/spotify-snapshots"
+# Local directory for storing snapshots -- accepts environment variables
+backup_dir = "$XDG_DATA_HOME/spotify-snapshots"
 
 # Interval in hours between backups when running as a cron job
 backup_interval_hours = 8

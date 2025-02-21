@@ -55,7 +55,7 @@ This repository contains automated backups of your Spotify playlists and liked s
 
 Each playlist is stored as a TSV (Tab Separated Values) file in the `playlists` directory, and liked songs are stored in `liked_songs.tsv`.
 
-The backup is automatically updated when changes are detected in your Spotify library."""
+See the [README](https://github.com/alichtman/spotify-snapshot/blob/main/README.md) for more information."""
             )
         logger.info("Created README.md file")
 
@@ -200,9 +200,7 @@ def remove_deleted_playlists(
 
     deleted_playlists = get_deleted_playlists(repo, is_test_mode)
     for playlist in deleted_playlists:
-        file_path_to_remove = spotify.get_playlist_file_name(
-            get_repo_filepath(is_test_mode), playlist
-        )
+        file_path_to_remove = spotify.get_playlist_file_name(playlist)
         rprint(f"[red]Deleting [bold]{file_path_to_remove}[/bold][/red]")
         os.remove(file_path_to_remove)
     return deleted_playlists
@@ -285,10 +283,11 @@ def get_commit_message_for_amending(
         # Compare with parent commit to get changes
         for diff_item in commit.diff(commit.parents[0] if commit.parents else None):
             if diff_item.renamed_file and diff_item.a_path.startswith("playlists/"):
-                old_name = diff_item.a_path.split("/")[-1].split(" (")[0]
-                new_name = diff_item.b_path.split("/")[-1].split(" (")[0]
+                # Extract everything before the last parenthetical for both old and new names
+                old_name = diff_item.a_path.split("/")[-1].rsplit(" (", 1)[0]
+                new_name = diff_item.b_path.split("/")[-1].rsplit(" (", 1)[0]
                 # Extract playlist ID from the filename
-                playlist_id = diff_item.a_path.split("(")[-1].rstrip(").tsv")
+                playlist_id = diff_item.a_path.rsplit("(", 1)[-1].rstrip(").tsv")
                 renamed_playlists.append((old_name, new_name))
                 renamed_playlist_ids.add(playlist_id)
 
@@ -307,7 +306,8 @@ def get_commit_message_for_amending(
                 and diff_item.new_file
                 and diff_item.b_path.startswith("playlists/")
             ):
-                playlist_name = diff_item.b_path.split("/")[-1].split(" (")[0]
+                # Extract everything before the last parenthetical (which contains the ID)
+                playlist_name = diff_item.b_path.split("/")[-1].rsplit(" (", 1)[0]
                 created_playlists.append(playlist_name)
 
         if created_playlists:
@@ -388,8 +388,13 @@ def maybe_git_push(
         try:
             rprint("[yellow]Pushing changes to remote...[/yellow]")
             repo.remotes.origin.push()
+            # Convert SSH URL to HTTPS URL if needed
+            url = repo.remotes.origin.url
+            if url.startswith("git@"):
+                # Convert git@github.com:user/repo.git to https://github.com/user/repo
+                url = url.replace(":", "/").replace("git@", "https://").rstrip(".git")
             rprint(
-                f"[green]Successfully pushed changes to {repo.remotes.origin.url}![/green]"
+                f"[green]Successfully pushed changes to [link={url}]{url}[/link]![/green]"
             )
         except git.GitCommandError as e:
             rprint(f"[red]Failed to push changes: {str(e)}[/red]")

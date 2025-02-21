@@ -56,7 +56,11 @@ def setup_git_repo_if_needed(is_test_mode) -> None:
                 rprint(
                     f"[yellow]Cloning repo from[/yellow] [blue]{config.git_remote_url}[/blue] [yellow]to[/yellow] [green][bold]{repo_filepath}[/bold][/green]"
                 )
-                git.Repo.clone_from(config.git_remote_url, repo_filepath)
+                repo = git.Repo.clone_from(config.git_remote_url, repo_filepath)
+                # Set up the remote properly after cloning
+                if "origin" in repo.remotes:
+                    repo.delete_remote("origin")
+                repo.create_remote("origin", config.git_remote_url)
             except git.GitCommandError:
                 # If clone fails (e.g., empty remote), create new directory and repo
                 rprint(

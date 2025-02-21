@@ -170,6 +170,10 @@ def get_playlists(sp_client: spotipy.Spotify) -> dict[str, SpotifyPlaylist]:
     return saved_playlists
 
 
+def get_username(sp_client: spotipy.Spotify) -> str:
+    return sp_client.current_user()["display_name"]
+
+
 def create_spotify_client() -> spotipy.Spotify:
     """Create and return an authenticated Spotify client.
 

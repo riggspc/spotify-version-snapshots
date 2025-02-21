@@ -173,7 +173,8 @@ def main(
     if backup_all or backup_playlists:
         spotify.write_playlists_to_git_repo(sp_client)
 
-    gitutils.commit_files(is_test_mode)
+    username = spotify.get_username(sp_client)
+    gitutils.commit_files(is_test_mode, username)
     gitutils.maybe_git_push(is_test_mode, should_push_without_prompting_user=push)
     gitutils.cleanup_repo()
     exit(0)

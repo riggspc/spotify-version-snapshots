@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from sys import exit
 
 import git
 from git import Commit, NoSuchPathError
@@ -122,7 +123,7 @@ def cleanup_repo() -> None:
         _repo_instance.close()
 
 
-def commit_files(is_test_mode: bool) -> None:
+def commit_files(is_test_mode: bool, username: str) -> None:
     logger = get_colorized_logger()
     repo = get_repo(is_test_mode)
 
@@ -145,7 +146,7 @@ def commit_files(is_test_mode: bool) -> None:
     # A temp commit is needed to get stats etc - the library doesn't support it
     # otherwise
     commit = repo.index.commit("temp")
-    commit_message = get_commit_message_for_amending(commit, deleted_playlists)
+    commit_message = get_commit_message_for_amending(commit, deleted_playlists, username)
     logger.info(
         f"<green>Commit info:</green>\n\n<yellow><bold>{commit_message}</bold></yellow>"
     )
@@ -176,10 +177,18 @@ def get_deleted_playlists(
             with open(output_manager.playlists_index_path, encoding="utf-8") as f:
                 new_content = f.read().splitlines()
 
-            # TODO: Handle the case where the new version has no playlists
+            # Extract playlist IDs from both old and new content
+            old_playlist_ids = {line.split("\t")[-1] for line in old_content if line.strip()}
+            new_playlist_ids = {line.split("\t")[-1] for line in new_content if line.strip()}
 
-            # Find lines that were in the old content but not in the new content
-            deleted_lines = [line for line in old_content if line not in new_content]
+            # Find playlists that were actually deleted (present in old but not in new)
+            deleted_playlist_ids = old_playlist_ids - new_playlist_ids
+            
+            # Get the full playlist info for deleted playlists
+            deleted_lines = [
+                line for line in old_content 
+                if line.strip() and line.split("\t")[-1] in deleted_playlist_ids
+            ]
             logger.info(f"\n<red>Found {len(deleted_lines)} deleted playlists</red>")
 
     # Get the playlists that were deleted
@@ -219,8 +228,9 @@ def remove_deleted_playlists(
     return deleted_playlists
 
 
+# TODO: This method desperately needs some refactoring
 def get_commit_message_for_amending(
-    commit: Commit, deleted_playlists: list[DeletedPlaylist]
+    commit: Commit, deleted_playlists: list[DeletedPlaylist], username: str
 ) -> str:
     """
     Generate a contextually appropriate commit message (depending on whether this is the first commit or not)
@@ -231,40 +241,42 @@ def get_commit_message_for_amending(
     is_first_commit = len(commit.parents) == 0
     current_time = datetime.now(tz=timezone.utc).strftime("%m/%d/%Y, %H:%M:%S %Z")
     if is_first_commit:
-        commit_title = f"Initial Spotify Snapshot - {current_time}"
+        commit_title = f"Initial Spotify Snapshot - {username} - {current_time}"
     else:
-        commit_title = f"Spotify Snapshot - {current_time}"
+        commit_title = f"Spotify Snapshot - {username} - {current_time}"
     stats = commit.stats
     playlist_stats: dict[str, int | dict[str, int]] = {}
     liked_songs_add_remove_stats: int | dict[str, int] | None = None
 
     # Process playlist files and liked songs
     for changed_file in stats.files:
-        # print(f"changed_file: {changed_file}")
-        if str(output_manager.liked_songs_filename) != str(changed_file):
-            continue
-
         file_stats = stats.files[changed_file]
-        if is_first_commit:
-            liked_songs_add_remove_stats = (
-                file_stats["insertions"] - 1
-            )  # Subtract header
-        else:
-            liked_songs_add_remove_stats = {
-                "added": file_stats["insertions"],
-                "removed": file_stats["deletions"],
-            }
-
-        playlist_name = changed_file.split("/")[-1].replace(".tsv", "")
-        if is_first_commit:
-            playlist_stats[playlist_name] = (
-                file_stats["insertions"] - 1
-            )  # Subtract header
-        else:
-            playlist_stats[playlist_name] = {
-                "added": file_stats["insertions"],
-                "removed": file_stats["deletions"],
-            }
+        
+        # Handle liked songs file
+        if str(output_manager.liked_songs_filename) == str(changed_file):
+            if is_first_commit:
+                liked_songs_add_remove_stats = (
+                    file_stats["insertions"] - 1
+                )  # Subtract header
+            else:
+                liked_songs_add_remove_stats = {
+                    "added": file_stats["insertions"],
+                    "removed": file_stats["deletions"],
+                }
+            continue
+            
+        # Handle playlist files
+        if changed_file.startswith("playlists/"):
+            playlist_name = changed_file.split("/")[-1].replace(".tsv", "")
+            if is_first_commit:
+                playlist_stats[playlist_name] = (
+                    file_stats["insertions"] - 1
+                )  # Subtract header
+            else:
+                playlist_stats[playlist_name] = {
+                    "added": file_stats["insertions"],
+                    "removed": file_stats["deletions"],
+                }
 
     # If liked songs file is present, grab the count of tracks
     liked_songs_count = None
@@ -283,8 +295,9 @@ def get_commit_message_for_amending(
                 f"Liked Songs Changes: +{liked_songs_add_remove_stats['added']}, -{liked_songs_add_remove_stats['removed']}"
             )
 
+    commit_details.append(f"Number of Playlists Changed: {len(playlist_stats)}")
+
     if is_first_commit:
-        commit_details.append(f"Number of Playlists: {len(playlist_stats)}")
         commit_details.append("\nPlaylist Details:")
         for playlist, track_count in sorted(playlist_stats.items()):
             commit_details.append(f"- {playlist}: {track_count} tracks")
@@ -315,14 +328,17 @@ def get_commit_message_for_amending(
         ]
 
         # Compare with parent commit to get changes
+        # TODO: This method is kind of a mess. Good enough though
         created_playlists = []
         for diff_item in commit.diff(commit.parents[0] if commit.parents else None):
-            if (not diff_item.renamed_file and
-                diff_item.new_file and
-                diff_item.b_path is not None and
-                diff_item.b_path.startswith("playlists/")):
-                # Extract everything before the last parenthetical (which contains the ID)
-                playlist_name = str(diff_item.b_path).split("/")[-1].rsplit(" (", 1)[0]
+            if (diff_item.b_path is not None and
+                diff_item.b_path.startswith("playlists/") and
+                diff_item.new_file and  # This is crucial - file must be new
+                not diff_item.renamed_file and  # Not a rename
+                # Don't count a playlist as created if it's in the deleted_playlists list
+                not any(playlist.name in diff_item.b_path for playlist in deleted_playlists)):
+                # Extract playlist name without the ID
+                playlist_name = diff_item.b_path.split("/")[-1].rsplit(" (", 1)[0]
                 created_playlists.append(playlist_name)
 
         if created_playlists:
@@ -369,71 +385,49 @@ def set_remote_url(remote_url: str, is_test_mode: bool) -> None:
 def maybe_git_push(
     is_test_mode: bool, should_push_without_prompting_user: bool = False
 ) -> None:
-    """Push changes to the remote repository.
-
-    Args:
-        is_test_mode: Whether running in test mode
-        should_prompt_user: If True, prompts the user to confirm the push
-    """
+    """Push changes to the remote repository."""
     logger = get_colorized_logger()
     repo = get_repo(is_test_mode)
 
-    # Check if remote exists and has a URL configured
+    # Verify remote exists and has URL
     try:
-        remote = repo.remote("origin")
-        if not remote.urls:
-            logger.warning("No remote URL configured. Skipping push.")
-            return
+        if not repo.remote("origin").urls:
+            if should_push_without_prompting_user:
+                logger.error("No remote URL configured. Skipping push.")
+                exit(1)
+            else:
+                logger.warning("No remote URL configured. Skipping push.")
+                return
     except ValueError:
         logger.warning("No remote configured. Skipping push.")
         return
 
-    should_push = False
-    if not should_push_without_prompting_user:
-        response = Prompt.ask(
-            "\nPush changes to remote repository?", choices=["y", "N"], default="N"
-        )
-        should_push = response == "y"
+    # Determine if we should push
+    if should_push_without_prompting_user:
+        logger.info("Pushing changes to remote (due to --push flag)...")
+    else:
+        if Prompt.ask("\nPush changes to remote repository?", choices=["y", "N"], default="N") != "y":
+            cleanup_repo()
+            exit(1)
 
-    if should_push:
-        try:
-            logger.info("Pushing changes to remote...")
-            # Check if we're on a branch
-            if repo.head.is_detached:
-                error_msg = "Cannot push: HEAD is in a detached state. Please checkout a branch first."
-                logger.error(error_msg)
-                exit(1)
-                # # Get available branches
-                # branches = [b.name for b in repo.heads]
-                # if not branches:
-                #     logger.error("No branches available to checkout")
-                #     return
+    try:
+        logger.info("Pushing changes to remote...")
+        if repo.head.is_detached:
+            logger.error("Cannot push: HEAD is in a detached state. Please checkout a branch first.")
+            cleanup_repo()
+            exit(1)
 
-                # # Format branch choices for prompt
-                # branch_choices = [str(i) for i in range(len(branches))]
-                # branch_list = "\n".join(f"{i}: {b}" for i, b in enumerate(branches))
-
-                # logger.info(f"\nAvailable branches:\n{branch_list}")
-                # choice = Prompt.ask(
-                #     "\nSelect a branch to checkout", choices=branch_choices, default="0"
-                # )
-
-                # # Checkout selected branch
-                # selected_branch = branches[int(choice)]
-                # repo.heads[selected_branch].checkout()
-                # logger.info(f"Checked out branch: {selected_branch}")
-
-            repo.remotes.origin.push()
-            # Convert SSH URL to HTTPS URL if needed
-            url = repo.remotes.origin.url
-            if url.startswith("git@"):
-                # Convert git@github.com:user/repo.git to https://github.com/user/repo
-                url = url.replace(":", "/").replace("git@", "https://").rstrip(".git")
-            success_msg = f"Successfully pushed changes to {url}!"
-            logger.info(success_msg)
-        except git.GitCommandError as e:
-            error_msg = f"Failed to push changes: {e!s}"
-            logger.error(error_msg)
-            logger.error(f"Git command failed with exit code {e.status}")
-            logger.error(f"Git stderr: {e.stderr}")
-            logger.error(f"[red]{error_msg}[/red]")
+        repo.remotes.origin.push()
+        # Convert SSH URL to HTTPS URL if needed
+        url = repo.remotes.origin.url
+        if url.startswith("git@"):
+            # Convert git@github.com:user/repo.git to https://github.com/user/repo
+            url = url.replace(":", "/").replace("git@", "https://").rstrip(".git")
+        success_msg = f"Successfully pushed changes to {url}!"
+        logger.info(success_msg)
+    except git.GitCommandError as e:
+        error_msg = f"Failed to push changes: {e!s}"
+        logger.error(error_msg)
+        logger.error(f"Git command failed with exit code {e.status}")
+        logger.error(f"Git stderr: {e.stderr}")
+        logger.error(f"[red]{error_msg}[/red]")

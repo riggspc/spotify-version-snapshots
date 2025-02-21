@@ -41,11 +41,16 @@ def setup_git_repo_if_needed(is_test_mode) -> None:
     config = SpotifySnapshotConfig.load()
 
     try:
-        git.Repo(repo_filepath)
-        rprint(
-            f"[yellow]Found existing repo at[/yellow] [green][bold]{repo_filepath}[/bold][/green]"
-        )
-    except NoSuchPathError:
+        # First check if the directory exists and is a git repo
+        if os.path.exists(repo_filepath) and os.path.exists(repo_filepath / ".git"):
+            repo = git.Repo(repo_filepath)
+            rprint(
+                f"[yellow]Found existing repo at[/yellow] [green][bold]{repo_filepath}[/bold][/green]"
+            )
+        else:
+            raise NoSuchPathError
+
+    except (NoSuchPathError, git.InvalidGitRepositoryError):
         if config.git_remote_url:
             try:
                 rprint(

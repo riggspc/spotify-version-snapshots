@@ -1,7 +1,8 @@
 from rich.console import Console
 import shutil
 from pathlib import Path
-import inspect, os.path
+import inspect
+import os.path
 from crontab import CronTab, CronItem
 from loguru import logger
 import sys

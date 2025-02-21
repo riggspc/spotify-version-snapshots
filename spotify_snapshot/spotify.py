@@ -268,9 +268,7 @@ def create_spotify_client() -> spotipy.Spotify:
 #####
 
 
-def get_playlist_file_name(
-    snapshots_repo_name: Path, playlist: SpotifyPlaylist | DeletedPlaylist
-) -> Path:
+def get_playlist_file_name(playlist: SpotifyPlaylist | DeletedPlaylist) -> Path:
     """Generate the file path for a playlist's tracks file.
 
     Args:
@@ -285,19 +283,16 @@ def get_playlist_file_name(
     playlist_id = playlist["id"] if isinstance(playlist, dict) else playlist.id
 
     escaped_playlist_name = playlist_name.replace("/", "\u2215")
-    return (
-        snapshots_repo_name
-        / Path("playlists")
-        / Path(f"{escaped_playlist_name} ({playlist_id}).tsv")
+    output_manager = SpotifySnapshotOutputManager.get_instance()
+    return output_manager.playlists_dir_path / Path(
+        f"{escaped_playlist_name} ({playlist_id}).tsv"
     )
 
 
-def write_liked_songs_to_git_repo(
-    sp_client: spotipy.Spotify, snapshots_repo_name: Path
-):
+def write_liked_songs_to_git_repo(sp_client: spotipy.Spotify):
     liked_songs = get_liked_songs(sp_client)
     output_manager = SpotifySnapshotOutputManager.get_instance()
-    dest_file = output_manager.get_full_liked_songs_path
+    dest_file = output_manager.liked_songs_path
     outputfileutils.write_to_file(
         data=liked_songs,
         sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),
@@ -310,9 +305,7 @@ def write_liked_songs_to_git_repo(
     )
 
 
-def write_saved_albums_to_git_repo(
-    sp_client: spotipy.Spotify, snapshots_repo_name: Path
-):
+def write_saved_albums_to_git_repo(sp_client: spotipy.Spotify):
     saved_albums = get_saved_albums(sp_client)
     output_manager = SpotifySnapshotOutputManager.get_instance()
     dest_file = output_manager.albums_path
@@ -328,7 +321,7 @@ def write_saved_albums_to_git_repo(
     )
 
 
-def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name: Path):
+def write_playlists_to_git_repo(sp_client: spotipy.Spotify):
     """
     Extracts a list of all playlists the user owns or is subscribed to, and writes them to a file. Then, for each playlist,
     it fetches all the tracks on the playlist and writes them to a separate file.
@@ -355,7 +348,7 @@ def write_playlists_to_git_repo(sp_client: spotipy.Spotify, snapshots_repo_name:
         if not playlist_tracks:
             skipped_playlists.append(playlist["name"])
             continue
-        playlist_tracks_file = get_playlist_file_name(snapshots_repo_name, playlist)
+        playlist_tracks_file = get_playlist_file_name(playlist)
         outputfileutils.write_to_file(
             data=playlist_tracks,
             sort_lambda=lambda item: (item["added_at"], item["track"]["name"]),

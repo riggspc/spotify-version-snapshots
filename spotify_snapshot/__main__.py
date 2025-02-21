@@ -9,7 +9,6 @@ from spotify_snapshot.spotify_snapshot_output_manager import (
 )
 from spotify_snapshot.install import install_crontab_entry
 from spotify_snapshot.logging import configure_logging_to_syslog
-from pathlib import Path
 from spotify_snapshot.__about__ import __version__
 from spotify_snapshot.config import SpotifySnapshotConfig
 
@@ -42,18 +41,11 @@ API_REQUEST_LIMIT = 50
     context_settings=dict(help_option_names=["-h", "-help", "--help"]),
 )
 @click.option(
-    "-p",
-    "--prod-run",
+    "-t",
+    "--test",
     is_flag=True,
     default=False,
-    help='Runs the "real" version of the script, fetching everything and writing to the "real" snapshots repo instead of a test one.',
-)
-@click.option(
-    "-n",
-    "--no-commit",
-    is_flag=True,
-    default=False,
-    help="When present, will run the entire script but not commit the results, leaving the repo dirty for manual committing later.",
+    help="Runs in test mode, writing to a test repo instead of the production snapshots repo.",
 )
 @click.option(
     "--backup-all",
@@ -93,8 +85,7 @@ API_REQUEST_LIMIT = 50
     help="Open the config file in your default editor ($EDITOR)",
 )
 def main(
-    prod_run,
-    no_commit,
+    test,
     backup_all,
     backup_liked_songs,
     backup_saved_albums,
@@ -133,7 +124,8 @@ def main(
         outputfileutils.pretty_print_tsv_table(pretty_print)
         return
 
-    is_test_mode = not prod_run
+    # TODO: Add as custom name for --test, so we don't need to do reassingment
+    is_test_mode = test
 
     if is_test_mode:
         rprint("[yellow]Running in test mode[/yellow]...")
@@ -155,20 +147,16 @@ def main(
         backup_all = True
 
     if backup_all or backup_liked_songs:
-        spotify.write_liked_songs_to_git_repo(sp_client, snapshots_repo_name)
+        spotify.write_liked_songs_to_git_repo(sp_client)
 
     if backup_all or backup_saved_albums:
-        spotify.write_saved_albums_to_git_repo(sp_client, snapshots_repo_name)
+        spotify.write_saved_albums_to_git_repo(sp_client)
 
     if backup_all or backup_playlists:
-        spotify.write_playlists_to_git_repo(sp_client, snapshots_repo_name)
+        spotify.write_playlists_to_git_repo(sp_client)
 
-    if no_commit:
-        rprint(
-            "[yellow]Skipping committing changes, leaving in repo dirty for manual committing later[/yellow]"
-        )
-    else:
-        gitutils.commit_files(is_test_mode)
+    gitutils.commit_files(is_test_mode)
+    exit(0)
 
 
 if __name__ == "__main__":

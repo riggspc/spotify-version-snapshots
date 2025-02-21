@@ -3,7 +3,7 @@ name = "spotify-snapshot"
 description = "A tool to backup Spotify library data to Git"
 license = "MIT"
 readme = "README.md"
-requires-python = "3.12"
+requires-python = ">=3.12"
 dynamic = ["version"]
 authors = [{ name = "Patrick Riggs", email = "riggspc@gmail.com" }, { name = "Aaron Lichtman", email = "aaronlichtman@gmail.com" }]
 keywords = ["spotify", "backup", "git"]

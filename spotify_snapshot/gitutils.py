@@ -371,10 +371,10 @@ def maybe_git_push(
     try:
         remote = repo.remote("origin")
         if not remote.urls:
-            rprint("[yellow]No remote URL configured. Skipping push.[/yellow]")
+            logger.warning("No remote URL configured. Skipping push.")
             return
     except ValueError:
-        rprint("[yellow]No remote configured. Skipping push.[/yellow]")
+        logger.warning("No remote configured. Skipping push.")
         return
 
     should_push = False
@@ -386,15 +386,43 @@ def maybe_git_push(
 
     if should_push:
         try:
-            rprint("[yellow]Pushing changes to remote...[/yellow]")
+            logger.info("Pushing changes to remote...")
+            # Check if we're on a branch
+            if repo.head.is_detached:
+                error_msg = "Cannot push: HEAD is in a detached state. Please checkout a branch first."
+                logger.error(error_msg)
+                exit(1)
+                # # Get available branches
+                # branches = [b.name for b in repo.heads]
+                # if not branches:
+                #     logger.error("No branches available to checkout")
+                #     return
+
+                # # Format branch choices for prompt
+                # branch_choices = [str(i) for i in range(len(branches))]
+                # branch_list = "\n".join(f"{i}: {b}" for i, b in enumerate(branches))
+
+                # logger.info(f"\nAvailable branches:\n{branch_list}")
+                # choice = Prompt.ask(
+                #     "\nSelect a branch to checkout", choices=branch_choices, default="0"
+                # )
+
+                # # Checkout selected branch
+                # selected_branch = branches[int(choice)]
+                # repo.heads[selected_branch].checkout()
+                # logger.info(f"Checked out branch: {selected_branch}")
+
             repo.remotes.origin.push()
             # Convert SSH URL to HTTPS URL if needed
             url = repo.remotes.origin.url
             if url.startswith("git@"):
                 # Convert git@github.com:user/repo.git to https://github.com/user/repo
                 url = url.replace(":", "/").replace("git@", "https://").rstrip(".git")
-            rprint(
-                f"[green]Successfully pushed changes to [link={url}]{url}[/link]![/green]"
-            )
+            success_msg = f"Successfully pushed changes to {url}!"
+            logger.info(success_msg)
         except git.GitCommandError as e:
-            rprint(f"[red]Failed to push changes: {str(e)}[/red]")
+            error_msg = f"Failed to push changes: {str(e)}"
+            logger.error(error_msg)
+            logger.error(f"Git command failed with exit code {e.status}")
+            logger.error(f"Git stderr: {e.stderr}")
+            rprint(f"[red]{error_msg}[/red]")

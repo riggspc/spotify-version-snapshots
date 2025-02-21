@@ -1,4 +1,4 @@
-import logging
+from loguru import logger
 from logging.handlers import SysLogHandler
 
 

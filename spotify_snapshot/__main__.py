@@ -1,4 +1,7 @@
 import click
+import os
+import subprocess
+
 from rich import print as rprint
 from spotify_snapshot import gitutils, spotify, outputfileutils
 from spotify_snapshot.spotify_snapshot_output_manager import (
@@ -8,6 +11,7 @@ from spotify_snapshot.install import install_crontab_entry
 from spotify_snapshot.logging import configure_logging_to_syslog
 from pathlib import Path
 from spotify_snapshot.__about__ import __version__
+from spotify_snapshot.config import SpotifySnapshotConfig
 
 API_REQUEST_SLEEP_TIME_SEC = 0.5
 # For albums, playlists, etc - the Spotify API has a (current) max of 50 things
@@ -18,8 +22,7 @@ API_REQUEST_LIMIT = 50
 # General TODOs:
 #
 # Error Handling & Logging:
-# - Add comprehensive error handling
-# - Replace print statements with proper logging
+# - Move more logging over to loguru
 #
 # Code Quality:
 # - Add support for podcasts (not just music tracks)
@@ -29,6 +32,9 @@ API_REQUEST_LIMIT = 50
 #
 # Repository:
 # - Add command line option to push to remote repo
+#
+# Config:
+# - Add config file to control default behavior
 
 
 @click.command(
@@ -80,6 +86,12 @@ API_REQUEST_LIMIT = 50
     help="Install spotify-snapshot as a cron job that runs every 8 hours.",
 )
 @click.option("--version", "-v", is_flag=True, help="Print the version")
+@click.option(
+    "--edit-config",
+    is_flag=True,
+    default=False,
+    help="Open the config file in your default editor ($EDITOR)",
+)
 def main(
     prod_run,
     no_commit,
@@ -90,6 +102,7 @@ def main(
     pretty_print,
     install,
     version,
+    edit_config,
 ):
     """Fetch and snapshot Spotify library data."""
 
@@ -101,9 +114,18 @@ def main(
 
     configure_logging_to_syslog()
 
+    # Load config -- this will create the config file if it doesn't exist
+    config = SpotifySnapshotConfig.load()
+
+    # Handle edit-config request if specified
+    if edit_config:
+        editor = os.environ.get("EDITOR", "vim")  # Default to vim if $EDITOR not set
+        subprocess.call([editor, config.config_file_path])
+        return
+
     # Handle install request if specified
     if install:
-        install_crontab_entry()
+        install_crontab_entry(interval_hours=config.backup_interval_hours)
         return
 
     # Handle pretty print request if specified
@@ -120,7 +142,12 @@ def main(
 
     sp_client = spotify.create_spotify_client()
     gitutils.setup_git_repo_if_needed(is_test_mode)
-    snapshots_repo_name = gitutils.get_repo_name(is_test_mode)
+
+    # Set remote URL if configured
+    if config.git_remote_url:
+        gitutils.set_remote_url(config.git_remote_url, is_test_mode)
+
+    snapshots_repo_name = gitutils.get_repo_filepath(is_test_mode)
     SpotifySnapshotOutputManager.initialize(snapshots_repo_name)
 
     # If no specific backup option is selected, default to backing up everything

@@ -4,6 +4,8 @@ from pathlib import Path
 import inspect, os.path
 from crontab import CronTab, CronItem
 from loguru import logger
+import sys
+from rich import print as rprint
 
 console = Console()
 
@@ -42,22 +44,28 @@ def get_crontab_entries(cron: CronTab) -> list[CronItem] | None:
         return entries
 
 
-def install_crontab_entry():
-    logger.info("Installing in crontab...")
-    user_cron = CronTab(user=True)
-    existing_entries = get_crontab_entries(user_cron)
-    if existing_entries:
-        logger.info("Crontab entries already exist. Skipping.")
-        return
+def install_crontab_entry(interval_hours: int = 8) -> None:
+    """Install spotify-snapshot as a cron job.
 
-    job = user_cron.new(
-        command=f'"{get_spotify_snapshot_executable_path()}" --prod-run',
-        comment=CRONTAB_COMMENT,
+    Args:
+        interval_hours: How often to run the backup (in hours)
+    """
+    cron = CronTab(user=True)
+
+    # Remove any existing spotify-snapshot jobs
+    cron.remove_all(comment="spotify-snapshot")
+
+    # Create new job that runs every interval_hours
+    job = cron.new(
+        command=f"{sys.executable} -m spotify_snapshot --prod-run",
+        comment="spotify-snapshot",
     )
-    job.hour.every(8)
-    job.run()
-    user_cron.write()
-    logger.info("Added a new crontab entry and executed it.")
+
+    # Set to run every interval_hours
+    job.every(interval_hours).hours()
+
+    cron.write()
+    rprint(f"[green]✓[/green] Installed cron job to run every {interval_hours} hours")
 
 
 def uninstall_crontab_entry():

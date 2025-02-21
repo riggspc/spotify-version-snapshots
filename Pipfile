@@ -12,6 +12,8 @@ click = "*"
 loguru = "*"
 crontab = "*"
 python-crontab = "*"
+tomli = "*"
+tomli-w = "*"
 
 [dev-packages]
 black = "*"      # For code formatting

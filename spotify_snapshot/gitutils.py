@@ -8,32 +8,68 @@ from spotify_snapshot import spotify
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
+from .config import SpotifySnapshotConfig
+
+_repo_instance = None
 
 
-def get_repo_name(is_test_mode: bool) -> Path:
+def get_repo_filepath(is_test_mode: bool) -> Path:
     if is_test_mode:
         return Path("/tmp/SPOTIFY-VERSION-SNAPSHOTS-TEST-REPO")
-    else:
-        return Path("spotify-snapshots-repo")
+
+    config = SpotifySnapshotConfig.load()
+    return config.backup_dir
+
+
+def get_repo(is_test_mode: bool = False) -> git.Repo:
+    """Get or create a singleton instance of the git repository.
+
+    Args:
+        is_test_mode: Whether to use test repository path
+
+    Returns:
+        git.Repo: Repository instance
+    """
+    global _repo_instance
+    if _repo_instance is None:
+        _repo_instance = git.Repo(get_repo_filepath(is_test_mode))
+    return _repo_instance
 
 
 def setup_git_repo_if_needed(is_test_mode) -> None:
-    repo_name = get_repo_name(is_test_mode)
+    repo_filepath = get_repo_filepath(is_test_mode)
+    config = SpotifySnapshotConfig.load()
+
     try:
-        git.Repo(repo_name)
+        git.Repo(repo_filepath)
         rprint(
-            f"[yellow]Found existing repo at[/yellow] [green][bold]{repo_name}[/bold][/green]"
+            f"[yellow]Found existing repo at[/yellow] [green][bold]{repo_filepath}[/bold][/green]"
         )
-    except NoSuchPathError as e:
-        rprint(
-            f"[yellow]No repo found, making a new one at[/yellow] [green][bold]{repo_name}[/bold][/green]"
-        )
-        git.Repo.init(repo_name)
+    except NoSuchPathError:
+        if config.git_remote_url:
+            try:
+                rprint(
+                    f"[yellow]Cloning repo from[/yellow] [blue]{config.git_remote_url}[/blue] [yellow]to[/yellow] [green][bold]{repo_filepath}[/bold][/green]"
+                )
+                git.Repo.clone_from(config.git_remote_url, repo_filepath)
+            except git.GitCommandError:
+                # If clone fails (e.g., empty remote), create new directory and repo
+                rprint(
+                    "[yellow]Remote repo is empty or inaccessible. Creating new local repo...[/yellow]"
+                )
+                os.makedirs(repo_filepath, exist_ok=True)
+                git.Repo.init(repo_filepath)
+        else:
+            rprint(
+                f"[yellow]No repo found, making a new one at[/yellow] [green][bold]{repo_filepath}[/bold][/green]"
+            )
+            os.makedirs(repo_filepath, exist_ok=True)
+            git.Repo.init(repo_filepath)
 
 
 # Requires that setup_git_repo_if_needed has already been called
 def commit_files(is_test_mode) -> None:
-    repo = git.Repo(get_repo_name(is_test_mode))
+    repo = get_repo(is_test_mode)
 
     is_first_commit = False
     try:
@@ -121,7 +157,7 @@ def remove_deleted_playlists(
     deleted_playlists = get_deleted_playlists(repo, is_test_mode)
     for playlist in deleted_playlists:
         file_path_to_remove = spotify.get_playlist_file_name(
-            get_repo_name(is_test_mode), playlist
+            get_repo_filepath(is_test_mode), playlist
         )
         rprint(f"[red]Deleting [bold]{file_path_to_remove}[/bold][/red]")
         os.remove(file_path_to_remove)
@@ -258,3 +294,19 @@ def get_commit_message_for_amending(
 
     commit_message_body = "\n".join(commit_details)
     return "\n\n".join([commit_title, commit_message_body])
+
+
+def set_remote_url(url: str, is_test_mode: bool) -> None:
+    """Set the remote URL for the git repository.
+
+    Args:
+        url: Git remote URL
+        is_test_mode: Whether to use test repository path
+    """
+    repo = get_repo(is_test_mode)
+    try:
+        remote = repo.remote("origin")
+        remote.set_url(url)
+    except ValueError:
+        # Remote doesn't exist, create it
+        repo.create_remote("origin", url)

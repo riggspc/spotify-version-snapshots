@@ -2,13 +2,14 @@ from spotify_snapshot import outputfileutils, env_utils
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
+from spotify_snapshot.logging import get_colorized_logger
 import spotipy
 import time
 from os import getenv, chmod
 from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Optional, Dict
-from rich import print as rprint
+from loguru import logger
 import requests
 
 
@@ -131,6 +132,7 @@ def _fetch_paginated_tracks(
     Returns:
         Dictionary of track_id -> track_item
     """
+    logger = get_colorized_logger()
     tracks_dict = {}
     total_tracks_fetched = 0
     results = initial_results
@@ -139,8 +141,8 @@ def _fetch_paginated_tracks(
     while True:
         result_items: List[SpotifyPlaylistTrackItem] = results["items"]
         total_tracks_fetched += len(result_items)
-        rprint(
-            f"[green]Fetched[/green] {total_tracks_fetched} / {results['total']} [green]tracks[/green]"
+        logger.info(
+            f"<green>Fetched</green> {total_tracks_fetched} / {results['total']} <green>tracks</green>"
         )
 
         for item in result_items:
@@ -160,31 +162,32 @@ def _fetch_paginated_tracks(
                     break
                 except requests.exceptions.ReadTimeout:
                     if attempt == max_retries - 1:
-                        rprint(
-                            f"[red]Error:[/red] Failed to fetch tracks after {max_retries} attempts due to timeout"
+                        logger.error(
+                            f"<red>Failed to fetch tracks after {max_retries} attempts due to timeout</red>"
                         )
-                        rprint(
-                            f"[yellow]Successfully fetched {total_tracks_fetched} tracks before error[/yellow]"
+                        logger.warning(
+                            f"<yellow>Successfully fetched {total_tracks_fetched} tracks before error. Continuing...</yellow>"
                         )
                         return tracks_dict
 
                     wait_time = retry_delay * (attempt + 1)
-                    rprint(
-                        f"[yellow]Request timed out. Retrying in {wait_time} seconds... (Attempt {attempt + 1}/{max_retries})[/yellow]"
+                    logger.info(
+                        f"<yellow>Request timed out. Retrying in {wait_time} seconds... (Attempt {attempt + 1}/{max_retries})</yellow>"
                     )
                     time.sleep(wait_time)
         else:
             break
 
     if skipped_tracks:
-        rprint(f"[red]Skipped[/red] {len(skipped_tracks)} tracks")
+        logger.info(f"<red>Skipped</red> {len(skipped_tracks)} tracks")
         for track in skipped_tracks:
-            rprint(f"[red]  • {track}[/red]")
+            logger.info(f"<red>  • {track}</red>")
     return tracks_dict
 
 
 def get_liked_songs(sp_client: spotipy.Spotify) -> dict:
-    rprint("[blue]Getting liked songs[/blue]...")
+    logger = get_colorized_logger()
+    logger.info("<blue>Getting liked songs</blue>...")
     initial_results = sp_client.current_user_saved_tracks(API_REQUEST_LIMIT)
     liked_songs = _fetch_paginated_tracks(sp_client, initial_results)
     return liked_songs
@@ -194,8 +197,9 @@ def get_tracks_from_playlist(
     sp_client: spotipy.Spotify,
     playlist: SpotifyPlaylist,
 ) -> dict:
-    rprint(
-        f"\n[blue]Backing up playlist:[/blue] [yellow][bold]{playlist['name']}[/bold][/yellow]"
+    logger = get_colorized_logger()
+    logger.info(
+        f"<blue>Backing up playlist:</blue> <yellow><bold>{playlist['name']}</bold></yellow>"
     )
     initial_results = sp_client.playlist_tracks(
         playlist_id=playlist["id"],
@@ -206,12 +210,13 @@ def get_tracks_from_playlist(
 
 
 def get_saved_albums(sp_client: spotipy.Spotify) -> dict:
+    logger = get_colorized_logger()
     saved_albums = {}
     results = sp_client.current_user_saved_albums(API_REQUEST_LIMIT)
 
     while True:
         result_items = results["items"]
-        rprint(f"[green]Fetched[/green] {len(result_items)} [green]albums[/green]")
+        logger.info(f"<green>Fetched</green> {len(result_items)} <green>albums</green>")
 
         for item in result_items:
             saved_albums[item["album"]["id"]] = item
@@ -226,16 +231,19 @@ def get_saved_albums(sp_client: spotipy.Spotify) -> dict:
 
 
 def get_playlists(sp_client: spotipy.Spotify) -> dict:
+    logger = get_colorized_logger()
     saved_playlists = {}
     results: SpotifyPlaylistsResponse = sp_client.current_user_playlists(
         API_REQUEST_LIMIT
     )
 
-    rprint(f"[green]Fetching[/green] {results['total']} [green]playlists[/green]...")
+    logger.info(
+        f"<green>Fetching</green> {results['total']} <green>playlists</green>..."
+    )
 
     while True:
         playlists: List[SpotifyPlaylist] = results["items"]
-        rprint(f"[green]Fetched[/green] {len(playlists)} playlists")
+        logger.info(f"<green>Fetched</green> {len(playlists)} playlists")
 
         for playlist in playlists:
             saved_playlists[playlist["id"]] = playlist
@@ -259,6 +267,8 @@ def create_spotify_client() -> spotipy.Spotify:
     Returns:
         An authenticated Spotify client instance
     """
+    logger = get_colorized_logger()
+    logger.info("<blue>Creating Spotify client...</blue>")
     client_id = env_utils.get_required_env_var("SPOTIFY_BACKUP_CLIENT_ID")
     client_secret = env_utils.get_required_env_var("SPOTIFY_BACKUP_CLIENT_SECRET")
 
@@ -284,6 +294,7 @@ def create_spotify_client() -> spotipy.Spotify:
     # Spotipy does not set the permissions on the cache file correctly, so we do it manually
     # I filed https://github.com/spotipy-dev/spotipy/security/advisories/GHSA-pwhh-q4h6-w599
     chmod(cache_path, 0o600)
+    logger.info("<green>Successfully created Spotify client!</green>")
     return client
 
 
@@ -314,6 +325,7 @@ def get_playlist_file_name(playlist: SpotifyPlaylist | DeletedPlaylist) -> Path:
 
 
 def write_liked_songs_to_git_repo(sp_client: spotipy.Spotify):
+    logger = get_colorized_logger()
     liked_songs = get_liked_songs(sp_client)
     output_manager = SpotifySnapshotOutputManager.get_instance()
     dest_file = output_manager.liked_songs_path
@@ -324,12 +336,13 @@ def write_liked_songs_to_git_repo(sp_client: spotipy.Spotify):
         item_to_row_lambda=outputfileutils.track_to_row,
         output_filename=dest_file,
     )
-    rprint(
-        f"[green]Wrote[/green] {len(liked_songs)} [green]liked songs to[/green] {dest_file}"
+    logger.info(
+        f"<green>Wrote</green> {len(liked_songs)} <green>liked songs to</green> {dest_file}"
     )
 
 
 def write_saved_albums_to_git_repo(sp_client: spotipy.Spotify):
+    logger = get_colorized_logger()
     saved_albums = get_saved_albums(sp_client)
     output_manager = SpotifySnapshotOutputManager.get_instance()
     dest_file = output_manager.albums_path
@@ -340,8 +353,8 @@ def write_saved_albums_to_git_repo(sp_client: spotipy.Spotify):
         item_to_row_lambda=outputfileutils.album_to_row,
         output_filename=dest_file,
     )
-    rprint(
-        f"[green]Wrote[/green] {len(saved_albums)} [green]albums to[/green] {dest_file}"
+    logger.info(
+        f"<green>Wrote</green> {len(saved_albums)} <green>albums to</green> {dest_file}"
     )
 
 
@@ -350,6 +363,7 @@ def write_playlists_to_git_repo(sp_client: spotipy.Spotify):
     Extracts a list of all playlists the user owns or is subscribed to, and writes them to a file. Then, for each playlist,
     it fetches all the tracks on the playlist and writes them to a separate file.
     """
+    logger = get_colorized_logger()
     playlists = get_playlists(sp_client)
     output_manager = SpotifySnapshotOutputManager.get_instance()
     playlists_file = output_manager.playlists_index_path
@@ -386,10 +400,12 @@ def write_playlists_to_git_repo(sp_client: spotipy.Spotify):
 
     # Print summary of skipped playlists with rich styling
     if skipped_playlists:
-        rprint(f"\n[yellow]Skipped {len(skipped_playlists)} empty playlists:[/yellow]")
+        logger.info(
+            f"<yellow>Skipped {len(skipped_playlists)} empty playlists:</yellow>"
+        )
         for playlist_name in sorted(skipped_playlists):
-            rprint(f"[red]  • {playlist_name}[/red]")
+            logger.info(f"<red>  • {playlist_name}</red>")
 
-    rprint(
-        f"[green]Successfully backed up[/green] {total_playlists_backed_up} playlists"
+    logger.info(
+        f"<green>Successfully backed up</green> {total_playlists_backed_up} playlists"
     )

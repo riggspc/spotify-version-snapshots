@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Optional
-from rich import print as rprint
+from loguru import logger
+from spotify_snapshot.logging import get_colorized_logger
 
 
 class SpotifySnapshotOutputManager:
@@ -66,16 +67,15 @@ class SpotifySnapshotOutputManager:
 
     def ensure_output_dirs(self):
         """Ensure all output directories exist"""
-        # Only try to create directories if they don't already exist
-
+        logger = get_colorized_logger()
         if not self.base_dir.exists():
-            rprint(
-                f"[blue]Creating directory[/blue] [green][bold]{self.base_dir}[/bold][/green]..."
+            logger.info(
+                f"<blue>Creating directory</blue> <green><bold>{self.base_dir}</bold></green>"
             )
             self.base_dir.mkdir(parents=True, exist_ok=True)
 
         if not self.playlists_dir_path.exists():
-            rprint(
-                f"[blue]Creating directory[/blue] [green][bold]{self.playlists_dir_path}[/bold][/green]..."
+            logger.info(
+                f"<blue>Creating directory</blue> <green><bold>{self.playlists_dir_path}</bold></green>"
             )
             self.playlists_dir_path.mkdir(parents=True, exist_ok=True)

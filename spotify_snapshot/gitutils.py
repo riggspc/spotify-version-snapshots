@@ -1,7 +1,6 @@
 import git
 from loguru import logger
 from datetime import datetime
-from rich import print as rprint
 import os
 from git import NoSuchPathError, Commit
 from pathlib import Path
@@ -11,6 +10,7 @@ from spotify_snapshot.spotify_snapshot_output_manager import (
 )
 from rich.prompt import Prompt
 from .config import SpotifySnapshotConfig
+from .logging import get_colorized_logger
 
 _repo_instance = None
 
@@ -44,6 +44,7 @@ def create_readme_if_missing(repo_filepath: Path) -> None:
     Args:
         repo_filepath: Path to the git repository
     """
+    logger = get_colorized_logger()
     readme_path = repo_filepath / "README.md"
     if not readme_path.exists():
         logger.info("Creating README.md file")
@@ -62,14 +63,15 @@ See the [README](https://github.com/alichtman/spotify-snapshot/blob/main/README.
 
 def setup_git_repo_if_needed(is_test_mode) -> Path:
     repo_filepath = get_repo_filepath(is_test_mode)
+    logger = get_colorized_logger()
     config = SpotifySnapshotConfig.load()
 
     try:
         # First check if the directory exists and is a git repo
         if os.path.exists(repo_filepath) and os.path.exists(repo_filepath / ".git"):
             repo = git.Repo(repo_filepath)
-            rprint(
-                f"[yellow]Found existing repo at[/yellow] [green][bold]{repo_filepath}[/bold][/green]"
+            logger.info(
+                f"<yellow>Found existing repo at</yellow> <green><bold>{repo_filepath}</bold></green>"
             )
             create_readme_if_missing(repo_filepath)
         else:
@@ -78,8 +80,8 @@ def setup_git_repo_if_needed(is_test_mode) -> Path:
     except (NoSuchPathError, git.InvalidGitRepositoryError):
         if config.git_remote_url:
             try:
-                rprint(
-                    f"[yellow]Cloning repo from[/yellow] [blue]{config.git_remote_url}[/blue] [yellow]to[/yellow] [green][bold]{repo_filepath}[/bold][/green]"
+                logger.info(
+                    f"Cloning repo from <blue>{config.git_remote_url}</blue> to <green>{str(repo_filepath).strip()}</green>"
                 )
                 repo = git.Repo.clone_from(config.git_remote_url, repo_filepath)
                 # Set up the remote properly after cloning
@@ -87,15 +89,20 @@ def setup_git_repo_if_needed(is_test_mode) -> Path:
                     repo.delete_remote("origin")
                 repo.create_remote("origin", config.git_remote_url)
             except git.GitCommandError:
-                # If clone fails (e.g., empty remote), create new directory and repo
-                rprint(
-                    "[yellow]Remote repo is empty or inaccessible. Creating new local repo...[/yellow]"
+                # If clone fails (e.g., empty remote), check if directory exists and is empty
+                if os.path.exists(repo_filepath) and os.listdir(repo_filepath):
+                    error_msg = f"Cannot create repository: Directory {repo_filepath} already exists and is not empty. You will need to manually delete it or move it to a different location."
+                    logger.error(f"<red>{error_msg}</red>")
+                    raise ValueError(error_msg)
+
+                logger.info(
+                    f"<yellow>Remote repo is empty. Creating new local repo at</yellow> <green><bold>{repo_filepath}</bold></green>"
                 )
                 os.makedirs(repo_filepath, exist_ok=True)
                 git.Repo.init(repo_filepath)
         else:
-            rprint(
-                f"[yellow]No repo found, making a new one at[/yellow] [green][bold]{repo_filepath}[/bold][/green]"
+            logger.info(
+                f"<yellow>No repo found, making a new one at</yellow> <green><bold>{repo_filepath}</bold></green>"
             )
             os.makedirs(repo_filepath, exist_ok=True)
             git.Repo.init(repo_filepath)
@@ -109,10 +116,10 @@ def cleanup_repo():
     global _repo_instance
     if _repo_instance is not None:
         _repo_instance.close()
-        _repo_instance = None
 
 
 def commit_files(is_test_mode) -> None:
+    logger = get_colorized_logger()
     repo = get_repo(is_test_mode)
 
     is_first_commit = False
@@ -127,7 +134,7 @@ def commit_files(is_test_mode) -> None:
 
     # Check if there are any changes to commit
     if not repo.is_dirty(untracked_files=True):
-        rprint("[yellow]No changes to commit[/yellow]")
+        logger.info("<yellow>No changes to commit</yellow>")
         return
 
     repo.git.add(A=True)
@@ -135,11 +142,11 @@ def commit_files(is_test_mode) -> None:
     # otherwise
     commit = repo.index.commit("temp")
     commit_message = get_commit_message_for_amending(repo, commit, deleted_playlists)
-    rprint(
-        f"[green]Commit info:[/green]\n\n[yellow][bold]{commit_message}[/bold][/yellow]"
+    logger.info(
+        f"<green>Commit info:</green>\n\n<yellow><bold>{commit_message}</bold></yellow>"
     )
     repo.git.commit("--amend", "-m", commit_message)
-    rprint("[green]Changes committed. All done![/green]")
+    logger.info("<green>Changes committed. All done!</green>")
 
 
 def get_deleted_playlists(
@@ -148,6 +155,7 @@ def get_deleted_playlists(
     """
     Returns a list of playlists that were deleted in the working directory changes
     """
+    logger = get_colorized_logger()
     output_manager = SpotifySnapshotOutputManager.get_instance()
 
     # Get the working directory changes for the playlists file
@@ -168,7 +176,7 @@ def get_deleted_playlists(
 
             # Find lines that were in the old content but not in the new content
             deleted_lines = [line for line in old_content if line not in new_content]
-            rprint(f"\n[red]Found {len(deleted_lines)} deleted playlists[/red]")
+            logger.info(f"\n<red>Found {len(deleted_lines)} deleted playlists</red>")
 
     # Get the playlists that were deleted
     deleted_playlists = []
@@ -192,16 +200,17 @@ def remove_deleted_playlists(
     Removes the playlists that were deleted in the staged changes
     Returns: List of deleted playlists
     """
+    logger = get_colorized_logger()
     try:
         repo.head.commit  # Check if there are any commits
     except ValueError:  # No commits yet
-        rprint("[yellow]First commit detected. No playlists to delete.[/yellow]")
+        logger.info("<yellow>First commit detected. No playlists to delete.</yellow>")
         return []
 
     deleted_playlists = get_deleted_playlists(repo, is_test_mode)
     for playlist in deleted_playlists:
         file_path_to_remove = spotify.get_playlist_file_name(playlist)
-        rprint(f"[red]Deleting [bold]{file_path_to_remove}[/bold][/red]")
+        logger.info(f"<red>Deleting <bold>{file_path_to_remove}</bold></red>")
         os.remove(file_path_to_remove)
     return deleted_playlists
 
@@ -365,6 +374,7 @@ def maybe_git_push(
         is_test_mode: Whether running in test mode
         should_prompt_user: If True, prompts the user to confirm the push
     """
+    logger = get_colorized_logger()
     repo = get_repo(is_test_mode)
 
     # Check if remote exists and has a URL configured
@@ -425,4 +435,4 @@ def maybe_git_push(
             logger.error(error_msg)
             logger.error(f"Git command failed with exit code {e.status}")
             logger.error(f"Git stderr: {e.stderr}")
-            rprint(f"[red]{error_msg}[/red]")
+            logger.error(f"[red]{error_msg}[/red]")

@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import Optional
 from rich import print as rprint
 from rich.prompt import Prompt
+from loguru import logger
+from spotify_snapshot.logging import get_colorized_logger
 
 
 @dataclass
@@ -40,7 +42,8 @@ class SpotifySnapshotConfig:
     @classmethod
     def create_initial_config(cls) -> "SpotifySnapshotConfig":
         """Create initial config file with user input."""
-        rprint("\n[yellow]No config file found. Let's create one![/yellow]\n")
+        logger = get_colorized_logger()
+        logger.info("\n<yellow>No config file found. Let's create one!</yellow>\n")
 
         # Get git remote URL
         git_remote_url = Prompt.ask(
@@ -82,7 +85,7 @@ class SpotifySnapshotConfig:
         with open(config_path, "wb") as f:
             tomli_w.dump(config_data, f)
 
-        rprint(f"\n[green]Config file created at {config_path}[/green]")
+        logger.info(f"<green>Config file created at {config_path}</green>")
 
         return config
 

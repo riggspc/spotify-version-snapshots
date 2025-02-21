@@ -1,9 +1,9 @@
-from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
 from pathlib import Path
 import csv
 from typing import Callable
+from spotify_snapshot.logging import get_colorized_logger
 
 TRACK_HEADER_ROW = ["TRACK NAME", "TRACK ARTIST(S)", "ALBUM", "DATE ADDED", "TRACK ID"]
 ALBUM_HEADER_ROW = ["ALBUM NAME", "ALBUM ARTIST(S)", "DATE ADDED", "ALBUM ID"]
@@ -34,7 +34,10 @@ def write_to_file(
     dict, and then outputs each item to the file specified. Overwrites any such
     existing file. Will create directories if needed.
     """
-    rprint(f"[blue]Writing to[/blue] [green][bold]{output_filename}[/bold][/green]...")
+    logger = get_colorized_logger()
+    logger.info(
+        f"<blue>Writing to</blue> <green><bold>{output_filename}</bold></green>"
+    )
 
     sorted_list = sorted(list(data.values()), key=sort_lambda)
     output_rows = [header_row]

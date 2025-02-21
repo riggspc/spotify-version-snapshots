@@ -5,8 +5,8 @@ import inspect
 import os.path
 from crontab import CronTab, CronItem
 from loguru import logger
+from spotify_snapshot.logging import get_colorized_logger
 import sys
-from rich import print as rprint
 
 console = Console()
 
@@ -51,6 +51,7 @@ def install_crontab_entry(interval_hours: int = 8) -> None:
     Args:
         interval_hours: How often to run the backup (in hours)
     """
+    logger = get_colorized_logger()
     cron = CronTab(user=True)
 
     # Remove any existing spotify-snapshot jobs
@@ -66,10 +67,13 @@ def install_crontab_entry(interval_hours: int = 8) -> None:
     job.every(interval_hours).hours()
 
     cron.write()
-    rprint(f"[green]✓[/green] Installed cron job to run every {interval_hours} hours")
+    logger.info(
+        f"<green>✓</green> Installed cron job to run every {interval_hours} hours"
+    )
 
 
 def uninstall_crontab_entry():
+    logger = get_colorized_logger()
     logger.info("Removing crontab entry if it exists...")
     user_cron = CronTab(user=True)
     user_cron.remove_all(comment=CRONTAB_COMMENT)

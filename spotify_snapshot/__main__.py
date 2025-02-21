@@ -8,7 +8,7 @@ from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
 from spotify_snapshot.install import install_crontab_entry
-from spotify_snapshot.logging import configure_logging_to_syslog
+from spotify_snapshot.logging import configure_logging, get_colorized_logger
 from spotify_snapshot.__about__ import __version__
 from spotify_snapshot.config import SpotifySnapshotConfig
 
@@ -104,13 +104,15 @@ def main(
 ):
     """Fetch and snapshot Spotify library data."""
 
+    logger = get_colorized_logger()
+
     if version:
         rprint(
             f"[bold green]spotify-snapshot[/bold green] [bold blue]{__version__}[/bold blue]"
         )
         return
 
-    configure_logging_to_syslog()
+    configure_logging()
 
     # Load config -- this will create the config file if it doesn't exist
     config = SpotifySnapshotConfig.load()
@@ -118,6 +120,7 @@ def main(
     # Handle edit-config request if specified
     if edit_config:
         editor = os.environ.get("EDITOR", "vim")  # Default to vim if $EDITOR not set
+        logger.info(f"Opening config file in {editor}")
         subprocess.call([editor, config.config_file_path])
         return
 
@@ -135,9 +138,9 @@ def main(
     is_test_mode: bool = test
 
     if is_test_mode:
-        rprint("[yellow]Running in test mode[/yellow]...")
+        logger.info("<yellow>Running in test mode...</yellow>")
     else:
-        rprint("[yellow]*** RUNNING IN PROD MODE ***[/yellow]")
+        logger.info("<yellow>*** RUNNING IN PROD MODE ***</yellow>")
 
     sp_client = spotify.create_spotify_client()
     gitutils.setup_git_repo_if_needed(is_test_mode)
@@ -152,6 +155,9 @@ def main(
     # If no specific backup option is selected, default to backing up everything
     if not any([backup_all, backup_liked_songs, backup_saved_albums, backup_playlists]):
         backup_all = True
+        logger.info(
+            "<yellow>No specific backup option selected. Backing up all data...</yellow>"
+        )
 
     if backup_all or backup_liked_songs:
         spotify.write_liked_songs_to_git_repo(sp_client)

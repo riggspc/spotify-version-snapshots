@@ -1,0 +1,42 @@
+[project]
+name = "spotify-snapshot"
+description = "A tool to backup Spotify library data to Git"
+license = "MIT"
+readme = "README.md"
+requires-python = "3.12"
+dynamic = ["version"]
+authors = [{ name = "Patrick Riggs", email = "riggspc@gmail.com" }, { name = "Aaron Lichtman", email = "aaronlichtman@gmail.com" }]
+keywords = ["spotify", "backup", "git"]
+dependencies = [
+	"xdg-base-dirs",
+	"loguru",
+	"click",
+	"rich",
+	"python-crontab",
+	"spotipy",
+	"gitpython",
+	# DEV DEPS BELOW
+	# I am having trouble getting hatch to cooperate with building a strictly dev env,
+	# so we're throwing them in with the critical deps. Sorry.
+	"rope",
+	"better-exceptions",
+	"black",
+]
+
+[project.urls]
+"Source Code" = "https://github.com/alichtman/spotify-snapshot"
+"Issue Tracker" = "https://github.com/alichtman/spotify-snapshot/issues"
+
+[tool.hatch.version]
+path = "spotify_snapshot/__about__.py"
+
+[project.scripts]
+spotify-snapshot = "spotify_snapshot:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = ["spotify_snapshot/*"]
+artifacts = ["dist/*"]

@@ -7,6 +7,7 @@ from spotify_snapshot.spotify_snapshot_output_manager import (
 from spotify_snapshot.install import install_crontab_entry
 from spotify_snapshot.logging import configure_logging_to_syslog
 from pathlib import Path
+from spotify_snapshot.__about__ import __version__
 
 API_REQUEST_SLEEP_TIME_SEC = 0.5
 # For albums, playlists, etc - the Spotify API has a (current) max of 50 things
@@ -30,7 +31,10 @@ API_REQUEST_LIMIT = 50
 # - Add command line option to push to remote repo
 
 
-@click.command()
+@click.command(
+    epilog="See the project homepage for more details: https://github.com/alichtman/spotify-snapshot",
+    context_settings=dict(help_option_names=["-h", "-help", "--help"]),
+)
 @click.option(
     "-p",
     "--prod-run",
@@ -75,6 +79,7 @@ API_REQUEST_LIMIT = 50
     default=False,
     help="Install spotify-snapshot as a cron job that runs every 8 hours.",
 )
+@click.option("--version", "-v", is_flag=True, help="Print the version")
 def main(
     prod_run,
     no_commit,
@@ -84,8 +89,15 @@ def main(
     backup_playlists,
     pretty_print,
     install,
+    version,
 ):
     """Fetch and snapshot Spotify library data."""
+
+    if version:
+        rprint(
+            f"[bold green]spotify-snapshot[/bold green] [bold blue]{__version__}[/bold blue]"
+        )
+        return
 
     configure_logging_to_syslog()
 

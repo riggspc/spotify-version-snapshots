@@ -10,6 +10,8 @@ rich = "*"
 black = "*"
 click = "*"
 loguru = "*"
+crontab = "*"
+python-crontab = "*"
 
 [dev-packages]
 black = "*"      # For code formatting

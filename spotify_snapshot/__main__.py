@@ -22,7 +22,7 @@ API_REQUEST_LIMIT = 50
 
 
 @click.command(
-    epilog="See the project homepage for more details: https://github.com/alichtman/spotify-snapshot",
+    epilog="https://github.com/alichtman/spotify-snapshot",
     context_settings={
         "help_option_names": ["-h", "-help", "--help"],
     },
@@ -62,7 +62,7 @@ API_REQUEST_LIMIT = 50
     "--install",
     is_flag=True,
     default=False,
-    help="Install spotify-snapshot as a cron job that runs every 8 hours.",
+    help="Install spotify-snapshot as a cron job.",
 )
 @click.option(
     "--uninstall",

@@ -332,6 +332,33 @@ This will produce a `spotify-snapshots` repo in your `$XDG_DATA_HOME/spotify-sna
 
 When playlists are deleted from Spotify, they are removed from the `playlists` directory, and the `playlists.tsv` file is updated to reflect the deletion.
 
+## CLI Options
+
+```bash
+$ spotify_snapshot  --help
+Usage: spotify_snapshot [OPTIONS]
+
+  Fetch and snapshot Spotify library data.
+
+Options:
+  -t, --test             Runs in test mode, writing to a test repo instead of
+                         the production snapshots repo.
+  --backup-all           Backup all library data, including liked songs, saved
+                         albums, and playlists.
+  --backup-liked-songs   Backup liked songs only.
+  --backup-saved-albums  Backup saved albums only.
+  --backup-playlists     Backup playlists only.
+  --pretty_print PATH    Path to a file to print the TSV data of.
+  --install              Install spotify-snapshot as a cron job.
+  --uninstall            Remove the spotify-snapshot cron job.
+  -v, --version          Print the version
+  --edit-config          Open the config file in your default editor ($EDITOR)
+  --push                 Push changes to the remote repository.
+  -help, -h, --help      Show this message and exit.
+
+  https://github.com/alichtman/spotify-snapshot
+```
+
 ## Configuration
 
 ### Spotify API Setup

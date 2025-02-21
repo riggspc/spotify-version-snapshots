@@ -9,7 +9,7 @@ from rich import print as rprint
 from spotify_snapshot import gitutils, outputfileutils, spotify
 from spotify_snapshot.__about__ import __version__
 from spotify_snapshot.config import SpotifySnapshotConfig
-from spotify_snapshot.install import install_crontab_entry
+from spotify_snapshot.install import install_crontab_entry, uninstall_crontab_entry
 from spotify_snapshot.logging import configure_logging, get_colorized_logger
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
@@ -64,6 +64,12 @@ API_REQUEST_LIMIT = 50
     default=False,
     help="Install spotify-snapshot as a cron job that runs every 8 hours.",
 )
+@click.option(
+    "--uninstall",
+    is_flag=True,
+    default=False,
+    help="Remove the spotify-snapshot cron job.",
+)
 @click.option("--version", "-v", is_flag=True, help="Print the version")
 @click.option(
     "--edit-config",
@@ -85,6 +91,7 @@ def main(
     backup_playlists: bool,
     pretty_print: str | None,
     install: bool,
+    uninstall: bool,
     version: bool,
     edit_config: bool,
     push: bool,
@@ -103,6 +110,11 @@ def main(
 
     # This will guide the user through creating the config file if it doesn't exist
     config = SpotifySnapshotConfig.load()
+
+    # Handle uninstall request if specified
+    if uninstall:
+        uninstall_crontab_entry()
+        return
 
     # Handle edit-config request if specified
     if edit_config:

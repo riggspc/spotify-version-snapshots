@@ -40,7 +40,7 @@ def get_spotify_snapshot_executable_path() -> str:
             )
 
 
-CRONTAB_COMMENT = "spotify_snapshot"
+CRONTAB_COMMENT = "spotify-snapshot"
 
 
 def get_crontab_entries(cron: CronTab) -> list[CronItem] | None:
@@ -58,29 +58,34 @@ def install_crontab_entry(interval_hours: int = 8) -> None:
         interval_hours: How often to run the backup (in hours)
     """
     logger = get_colorized_logger()
+    command = f"{sys.executable} -m spotify_snapshot --push"
     cron = CronTab(user=True)
-
-    # Remove any existing spotify-snapshot jobs
-    cron.remove_all(comment="spotify-snapshot")
+    logger.info(f"Installing crontab entry for $ {command}")
+    existing_entries = get_crontab_entries(cron)
+    if existing_entries:
+        logger.info("Crontab entries already exist. Removing them...")
+        cron.remove_all(comment=CRONTAB_COMMENT)
 
     # Create new job that runs every interval_hours
     job = cron.new(
-        command=f"{sys.executable} -m spotify_snapshot --push",
-        comment="spotify-snapshot",
+        command=command,
+        comment=CRONTAB_COMMENT,
     )
 
-    # Set to run every interval_hours
-    job.every(interval_hours).hours()
-
+    # Set it to run every interval_hours
+    job.hour.every(interval_hours)
+    # Save the config
     cron.write()
     logger.info(
-        f"<green>✓</green> Installed cron job to run every {interval_hours} hours"
+        f"<green>✓</green> Installed cron job to run every {interval_hours} hours, and am executing it now"
     )
+    job.run()
 
 
 def uninstall_crontab_entry() -> None:
     logger = get_colorized_logger()
     logger.info("Removing crontab entry if it exists...")
     user_cron = CronTab(user=True)
+    logger.info(f"Current crontab entries for this program: {get_crontab_entries(user_cron)}")
     user_cron.remove_all(comment=CRONTAB_COMMENT)
     user_cron.write()

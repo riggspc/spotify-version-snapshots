@@ -4,7 +4,6 @@ import tomli_w
 import os
 from dataclasses import dataclass
 from typing import Optional
-from rich import print as rprint
 from rich.prompt import Prompt
 from loguru import logger
 from spotify_snapshot.logging import get_colorized_logger

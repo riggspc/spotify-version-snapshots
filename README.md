@@ -12,11 +12,9 @@ If Spotify ever disappears, you'll have a backup of your music library. And you'
 ```bash
 $ git clone git@github.com:alichtman/spotify-snapshot.git
 $ cd spotify-snapshot
-$ python3 -m spotify_snapshot --install
+$ pipx install .
+$ spotify_snapshot --install
 ```
-
-> [!TODO]
-> Figure out packaging
 
 ## Output Structure
 

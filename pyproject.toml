@@ -29,7 +29,7 @@ dependencies = [
 
 
 [project.scripts]
-spotify-snapshot = "spotify_snapshot:main"
+spotify-snapshot = "spotify_snapshot.__main__:main"
 
 [build-system]
 requires = ["hatchling"]

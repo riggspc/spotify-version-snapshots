@@ -21,24 +21,6 @@ API_REQUEST_SLEEP_TIME_SEC = 0.5
 API_REQUEST_LIMIT = 50
 
 
-# General TODOs:
-#
-# Error Handling & Logging:
-# - Move more logging over to loguru
-#
-# Code Quality:
-# - Add support for podcasts (not just music tracks)
-#
-# Playlist Management:
-# - Handle unnamed playlists (e.g. rename to "Deleted playlist")
-#
-# Repository:
-# - Add command line option to push to remote repo
-#
-# Config:
-# - Add config file to control default behavior
-
-
 @click.command(
     epilog="See the project homepage for more details: https://github.com/alichtman/spotify-snapshot",
     context_settings={
@@ -119,7 +101,7 @@ def main(
 
     configure_logging()
 
-    # Load config -- this will create the config file if it doesn't exist
+    # This will guide the user through creating the config file if it doesn't exist
     config = SpotifySnapshotConfig.load()
 
     # Handle edit-config request if specified

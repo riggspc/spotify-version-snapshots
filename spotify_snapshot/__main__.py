@@ -122,7 +122,7 @@ def main(
     if edit_config:
         editor = os.environ.get("EDITOR", "vim")  # Default to vim if $EDITOR not set
         logger.info(f"Opening config file in {editor}")
-        subprocess.call([editor, config.config_path])
+        subprocess.call([editor, config.get_config_path()])
         return
 
     # Handle install request if specified

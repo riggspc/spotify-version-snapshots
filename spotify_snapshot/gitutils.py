@@ -13,6 +13,7 @@ from rich.prompt import Prompt
 from .config import SpotifySnapshotConfig
 from .logging import get_colorized_logger
 from typing import Optional, Union
+from spotify_snapshot.spotify import DeletedPlaylist
 
 _repo_instance = None
 
@@ -20,8 +21,9 @@ _repo_instance = None
 def get_repo_filepath(is_test_mode: bool) -> Path:
     if is_test_mode:
         return Path("/tmp/SPOTIFY-VERSION-SNAPSHOTS-TEST-REPO")
-
     config = SpotifySnapshotConfig.load()
+    if config.backup_dir is None:
+        raise ValueError("Backup directory not set. This should not be possible.")
     return config.backup_dir
 
 
@@ -132,7 +134,7 @@ def commit_files(is_test_mode: bool) -> None:
 
     deleted_playlists = []
     if not is_first_commit:
-        deleted_playlists = remove_deleted_playlists(repo, is_test_mode)
+        deleted_playlists = remove_deleted_playlists(repo)
 
     # Check if there are any changes to commit
     if not repo.is_dirty(untracked_files=True):
@@ -152,7 +154,7 @@ def commit_files(is_test_mode: bool) -> None:
 
 
 def get_deleted_playlists(
-    repo: git.Repo, is_test_mode: bool
+    repo: git.Repo,
 ) -> list[DeletedPlaylist]:
     """
     Returns a list of playlists that were deleted in the working directory changes
@@ -196,7 +198,7 @@ def get_deleted_playlists(
 
 
 def remove_deleted_playlists(
-    repo: git.Repo, is_test_mode: bool
+    repo: git.Repo,
 ) -> list[DeletedPlaylist]:
     """
     Removes the playlists that were deleted in the staged changes
@@ -209,7 +211,7 @@ def remove_deleted_playlists(
         logger.info("<yellow>First commit detected. No playlists to delete.</yellow>")
         return []
 
-    deleted_playlists = get_deleted_playlists(repo, is_test_mode)
+    deleted_playlists = get_deleted_playlists(repo)
     for playlist in deleted_playlists:
         file_path_to_remove = spotify.get_playlist_file_name(playlist)
         logger.info(f"<red>Deleting <bold>{file_path_to_remove}</bold></red>")
@@ -353,20 +355,15 @@ def get_commit_message_for_amending(
     return "\n\n".join([commit_title, commit_message_body])
 
 
-def set_remote_url(url: str, is_test_mode: bool) -> None:
-    """Set the remote URL for the git repository.
-
-    Args:
-        url: Git remote URL
-        is_test_mode: Whether to use test repository path
-    """
+def set_remote_url(remote_url: str, is_test_mode: bool) -> None:
+    """Set the remote URL for the git repository."""
     repo = get_repo(is_test_mode)
     try:
         remote = repo.remote("origin")
-        remote.set_url(url)
+        remote.set_url(remote_url)
     except ValueError:
         # Remote doesn't exist, create it
-        repo.create_remote("origin", url)
+        repo.create_remote("origin", remote_url)
 
 
 def maybe_git_push(

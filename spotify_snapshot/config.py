@@ -18,7 +18,7 @@ class SpotifySnapshotConfig:
     @classmethod
     def load(cls) -> "SpotifySnapshotConfig":
         """Load config from the default config file location."""
-        config_path = cls._get_config_path()
+        config_path = cls.get_config_path()
 
         if not config_path.exists():
             return cls.create_initial_config()
@@ -72,7 +72,7 @@ class SpotifySnapshotConfig:
         )
 
         # Save the config
-        config_path = cls._get_config_path()
+        config_path = cls.get_config_path()
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
         config_data = {
@@ -89,7 +89,7 @@ class SpotifySnapshotConfig:
         return config
 
     @staticmethod
-    def _get_config_path() -> Path:
+    def get_config_path() -> Path:
         """Get the path to the config file."""
         xdg_config_home = os.environ.get(
             "XDG_CONFIG_HOME", str(Path.home() / ".config")

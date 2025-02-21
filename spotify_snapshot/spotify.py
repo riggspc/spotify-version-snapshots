@@ -8,7 +8,7 @@ import time
 from os import getenv, chmod
 from pathlib import Path
 from dataclasses import dataclass
-from typing import List
+from typing import List, Dict
 import requests
 from spotify_snapshot.spotify_datatypes import (
     SpotifyUser,
@@ -150,7 +150,7 @@ def get_saved_albums(sp_client: spotipy.Spotify) -> dict:
     return saved_albums
 
 
-def get_playlists(sp_client: spotipy.Spotify) -> dict:
+def get_playlists(sp_client: spotipy.Spotify) -> Dict[str, SpotifyPlaylist]:
     logger = get_colorized_logger()
     saved_playlists = {}
     results: SpotifyPlaylistsResponse = sp_client.current_user_playlists(

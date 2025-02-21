@@ -19,7 +19,11 @@ def get_spotify_snapshot_executable_path() -> str:
         return which
     else:
         # Maybe we're in the hatch dev env? We can grab the bin path from the filename
-        filename = inspect.getframeinfo(inspect.currentframe()).filename
+        current_frame = inspect.currentframe()
+        if current_frame is None:
+            raise RuntimeError("Could not get current frame")
+            
+        filename = inspect.getframeinfo(current_frame).filename
         logger.info(f"Filename: {filename}")
         path = os.path.dirname(os.path.abspath(filename))
         pkg_name = "spotify-snapshot"

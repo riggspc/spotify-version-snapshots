@@ -65,7 +65,7 @@ def install_crontab_entry(interval_hours: int = 8) -> None:
 
     # Create new job that runs every interval_hours
     job = cron.new(
-        command=f"{sys.executable} -m spotify_snapshot --prod-run",
+        command=f"{sys.executable} -m spotify_snapshot --push",
         comment="spotify-snapshot",
     )
 

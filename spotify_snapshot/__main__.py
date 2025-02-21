@@ -4,6 +4,7 @@ from spotify_snapshot import gitutils, spotify, outputfileutils
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
+from spotify_snapshot.install import install_crontab_entry
 from pathlib import Path
 
 API_REQUEST_SLEEP_TIME_SEC = 0.5
@@ -67,6 +68,12 @@ API_REQUEST_LIMIT = 50
     required=False,
     help="Path to a file to print the TSV data of.",
 )
+@click.option(
+    "--install",
+    is_flag=True,
+    default=False,
+    help="Install spotify-snapshot as a cron job that runs every 8 hours.",
+)
 def main(
     prod_run,
     no_commit,
@@ -75,8 +82,14 @@ def main(
     backup_saved_albums,
     backup_playlists,
     pretty_print,
+    install,
 ):
     """Fetch and snapshot Spotify library data."""
+
+    # Handle install request if specified
+    if install:
+        install_crontab_entry()
+        return
 
     # Handle pretty print request if specified
     if pretty_print:

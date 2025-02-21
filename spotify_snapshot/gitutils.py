@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import git
@@ -145,7 +145,7 @@ def commit_files(is_test_mode: bool) -> None:
     # A temp commit is needed to get stats etc - the library doesn't support it
     # otherwise
     commit = repo.index.commit("temp")
-    commit_message = get_commit_message_for_amending(repo, commit, deleted_playlists)
+    commit_message = get_commit_message_for_amending(commit, deleted_playlists)
     logger.info(
         f"<green>Commit info:</green>\n\n<yellow><bold>{commit_message}</bold></yellow>"
     )
@@ -220,7 +220,7 @@ def remove_deleted_playlists(
 
 
 def get_commit_message_for_amending(
-    repo: git.Repo, commit: Commit, deleted_playlists: list[DeletedPlaylist]
+    commit: Commit, deleted_playlists: list[DeletedPlaylist]
 ) -> str:
     """
     Generate a contextually appropriate commit message (depending on whether this is the first commit or not)
@@ -229,7 +229,7 @@ def get_commit_message_for_amending(
     """
     output_manager = SpotifySnapshotOutputManager.get_instance()
     is_first_commit = len(commit.parents) == 0
-    current_time = datetime.now(tz=datetime.UTC).strftime("%m/%d/%Y, %H:%M:%S")
+    current_time = datetime.now(tz=timezone.utc).strftime("%m/%d/%Y, %H:%M:%S %Z")
     if is_first_commit:
         commit_title = f"Initial Spotify Snapshot - {current_time}"
     else:

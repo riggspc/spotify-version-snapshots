@@ -5,30 +5,27 @@ license = "MIT"
 readme = "README.md"
 requires-python = ">=3.12"
 dynamic = ["version"]
-authors = [{ name = "Patrick Riggs", email = "riggspc@gmail.com" }, { name = "Aaron Lichtman", email = "aaronlichtman@gmail.com" }]
+authors = [
+	{ name = "Patrick Riggs", email = "riggspc@gmail.com" },
+	{ name = "Aaron Lichtman", email = "aaronlichtman@gmail.com" }
+]
 keywords = ["spotify", "backup", "git"]
 dependencies = [
-	"xdg-base-dirs",
 	"loguru",
 	"click",
 	"rich",
 	"python-crontab",
 	"spotipy",
 	"gitpython",
-	# DEV DEPS BELOW
-	# I am having trouble getting hatch to cooperate with building a strictly dev env,
-	# so we're throwing them in with the critical deps. Sorry.
-	"rope",
-	"better-exceptions",
-	"black",
+	"tomli",
+	"tomli-w",
+	"requests",
 ]
 
 [project.urls]
 "Source Code" = "https://github.com/alichtman/spotify-snapshot"
 "Issue Tracker" = "https://github.com/alichtman/spotify-snapshot/issues"
 
-[tool.hatch.version]
-path = "spotify_snapshot/__about__.py"
 
 [project.scripts]
 spotify-snapshot = "spotify_snapshot:main"
@@ -37,10 +34,51 @@ spotify-snapshot = "spotify_snapshot:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.version]
+path = "spotify_snapshot/__about__.py"
+
 [tool.hatch.build]
 include = ["spotify_snapshot/*"]
 artifacts = ["dist/*"]
 
-[tool.poetry.dependencies]
-tomli = "^2.0.1"
-tomli-w = "^1.0.0"
+[tool.mypy]
+# Prevent duplicate module checking
+exclude = ["build/", "dist/"]
+# Ignore missing imports for external packages
+ignore_missing_imports = true
+# Make the checker stricter
+strict = true
+# Don't check the same file twice
+explicit_package_bases = true
+namespace_packages = true
+# The root directory to check
+mypy_path = "."
+
+[tool.hatch.envs.default]
+dependencies = [
+	# Development dependencies that were previously mixed with runtime dependencies
+	"rope",
+	"better-exceptions",
+	"black",
+	"flake8",
+	"mypy",
+]
+
+[tool.hatch.envs.default.scripts]
+fmt = "black *.py spotify_snapshot/*.py"
+lint = [
+    "black --check *.py spotify_snapshot/*.py",
+    "flake8 .",
+    "mypy spotify_snapshot"
+]
+typecheck = "mypy spotify_snapshot"
+
+[tool.hatch.envs.test]
+dependencies = [
+	"pytest",
+	"pytest-cov",
+]
+
+[tool.hatch.envs.test.scripts]
+test = "pytest"
+cov = "pytest --cov-report term-missing --cov=spotify_snapshot"

@@ -2,8 +2,14 @@ from rich.console import Console
 from rich.table import Table
 from pathlib import Path
 import csv
-from typing import Callable
+from typing import Callable, Any, TypeVar, Union
 from spotify_snapshot.logging import get_colorized_logger
+from spotify_snapshot.spotify_datatypes import (
+    SpotifyPlaylistTrackItem,
+    SpotifyPlaylist,
+    SpotifyTrack,
+    SpotifyAlbum,
+)
 
 TRACK_HEADER_ROW = ["TRACK NAME", "TRACK ARTIST(S)", "ALBUM", "DATE ADDED", "TRACK ID"]
 ALBUM_HEADER_ROW = ["ALBUM NAME", "ALBUM ARTIST(S)", "DATE ADDED", "ALBUM ID"]
@@ -21,11 +27,12 @@ TRACK_IN_PLAYLIST_HEADER_ROW = [
     *TRACK_HEADER_ROW[-1:],
 ]
 
+T = TypeVar('T')
 
 def write_to_file(
-    data: dict,
-    sort_lambda: Callable,
-    item_to_row_lambda: Callable,
+    data: dict[str, T],
+    sort_lambda: Callable[[T], Any],
+    item_to_row_lambda: Callable[[T], list[str]],
     header_row: list[str],
     output_filename: Path,
 ) -> None:
@@ -49,7 +56,7 @@ def write_to_file(
         tsv_writer.writerows(output_rows)
 
 
-def track_to_row(item) -> list:
+def track_to_row(item: SpotifyPlaylistTrackItem) -> list[str]:
     track_obj = item["track"]
     return [
         track_obj["name"],
@@ -60,17 +67,17 @@ def track_to_row(item) -> list:
     ]
 
 
-def playlist_track_to_row(item) -> list:
+def playlist_track_to_row(item: SpotifyPlaylistTrackItem) -> list[str]:
     track_row = track_to_row(item)
     added_by_id = item["added_by"]["id"]
     if added_by_id == "":
         # This has come up in debugging with Spotify owned ("official") playlists,
         # presumably because they're built different than "regular" playlists
         added_by_id = "<unknown>"
-    return [*track_row[:-1], item["added_by"]["id"], *track_row[-1:]]
+    return [*track_row[:-1], added_by_id, *track_row[-1:]]
 
 
-def album_to_row(item) -> list:
+def album_to_row(item: dict[str, Union[str, SpotifyAlbum]]) -> list[str]:
     album_obj = item["album"]
     return [
         album_obj["name"],
@@ -80,7 +87,7 @@ def album_to_row(item) -> list:
     ]
 
 
-def playlist_to_row(item) -> list:
+def playlist_to_row(item: SpotifyPlaylist) -> list[str]:
     return [
         item["name"],
         item["description"],

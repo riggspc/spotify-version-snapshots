@@ -8,101 +8,21 @@ import time
 from os import getenv, chmod
 from pathlib import Path
 from dataclasses import dataclass
-from typing import List, Optional, Dict
-from loguru import logger
+from typing import List
 import requests
-
-
-@dataclass
-class SpotifyImage:
-    height: Optional[int]
-    width: Optional[int]
-    url: str
-
-
-@dataclass
-class SpotifyUser:
-    display_name: str
-    external_urls: Dict[str, str]
-    href: str
-    id: str
-    type: str
-    uri: str
-
-
-@dataclass
-class SpotifyTracks:
-    href: str
-    total: int
-
-
-@dataclass
-class SpotifyPlaylist:
-    collaborative: bool
-    description: str
-    external_urls: Dict[str, str]
-    href: str
-    id: str
-    images: List[SpotifyImage]
-    name: str
-    owner: SpotifyUser
-    primary_color: Optional[str]
-    public: bool
-    snapshot_id: str
-    tracks: SpotifyTracks
-    type: str
-    uri: str
-
-
-@dataclass
-class SpotifyAlbum:
-    name: str
-    id: str
-
-
-@dataclass
-class SpotifyArtist:
-    name: str
-
-
-@dataclass
-class SpotifyTrack:
-    album: SpotifyAlbum
-    artists: List[SpotifyArtist]
-    name: str
-    id: str
-
-
-@dataclass
-class SpotifyAddedBy:
-    id: str
-
-
-@dataclass
-class SpotifyPlaylistTrackItem:
-    track: SpotifyTrack
-    added_by: SpotifyAddedBy
-    added_at: str
-
-
-@dataclass
-class SpotifyPlaylistTracksResponse:
-    items: List[SpotifyPlaylistTrackItem]
-    next: Optional[str]
-    total: int
-
-
-@dataclass
-class SpotifyPlaylistsResponse:
-    items: List[SpotifyPlaylist]
-    next: Optional[str]
-    total: int
-
-
-@dataclass
-class DeletedPlaylist:
-    name: str
-    id: str
+from spotify_snapshot.spotify_datatypes import (
+    SpotifyUser,
+    SpotifyTracks,
+    SpotifyPlaylist,
+    SpotifyAlbum,
+    SpotifyArtist,
+    SpotifyTrack,
+    SpotifyAddedBy,
+    SpotifyPlaylistTrackItem,
+    SpotifyPlaylistTracksResponse,
+    SpotifyPlaylistsResponse,
+    DeletedPlaylist,
+)
 
 
 #####
@@ -324,7 +244,7 @@ def get_playlist_file_name(playlist: SpotifyPlaylist | DeletedPlaylist) -> Path:
     )
 
 
-def write_liked_songs_to_git_repo(sp_client: spotipy.Spotify):
+def write_liked_songs_to_git_repo(sp_client: spotipy.Spotify) -> None:
     logger = get_colorized_logger()
     liked_songs = get_liked_songs(sp_client)
     output_manager = SpotifySnapshotOutputManager.get_instance()
@@ -341,7 +261,7 @@ def write_liked_songs_to_git_repo(sp_client: spotipy.Spotify):
     )
 
 
-def write_saved_albums_to_git_repo(sp_client: spotipy.Spotify):
+def write_saved_albums_to_git_repo(sp_client: spotipy.Spotify) -> None:
     logger = get_colorized_logger()
     saved_albums = get_saved_albums(sp_client)
     output_manager = SpotifySnapshotOutputManager.get_instance()
@@ -358,7 +278,7 @@ def write_saved_albums_to_git_repo(sp_client: spotipy.Spotify):
     )
 
 
-def write_playlists_to_git_repo(sp_client: spotipy.Spotify):
+def write_playlists_to_git_repo(sp_client: spotipy.Spotify) -> None:
     """
     Extracts a list of all playlists the user owns or is subscribed to, and writes them to a file. Then, for each playlist,
     it fetches all the tracks on the playlist and writes them to a separate file.

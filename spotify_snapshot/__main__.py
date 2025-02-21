@@ -1,7 +1,8 @@
 import click
 import os
 import subprocess
-
+from typing import Optional
+from pathlib import Path
 from rich import print as rprint
 from spotify_snapshot import gitutils, spotify, outputfileutils
 from spotify_snapshot.spotify_snapshot_output_manager import (
@@ -91,17 +92,17 @@ API_REQUEST_LIMIT = 50
     help="Push changes to the remote repository.",
 )
 def main(
-    test,
-    backup_all,
-    backup_liked_songs,
-    backup_saved_albums,
-    backup_playlists,
-    pretty_print,
-    install,
-    version,
-    edit_config,
-    push,
-):
+    test: bool,
+    backup_all: bool,
+    backup_liked_songs: bool,
+    backup_saved_albums: bool,
+    backup_playlists: bool,
+    pretty_print: Optional[str],
+    install: bool,
+    version: bool,
+    edit_config: bool,
+    push: bool,
+) -> None:
     """Fetch and snapshot Spotify library data."""
 
     logger = get_colorized_logger()
@@ -121,7 +122,7 @@ def main(
     if edit_config:
         editor = os.environ.get("EDITOR", "vim")  # Default to vim if $EDITOR not set
         logger.info(f"Opening config file in {editor}")
-        subprocess.call([editor, config.config_file_path])
+        subprocess.call([editor, config.config_path])
         return
 
     # Handle install request if specified
@@ -131,7 +132,7 @@ def main(
 
     # Handle pretty print request if specified
     if pretty_print:
-        outputfileutils.pretty_print_tsv_table(pretty_print)
+        outputfileutils.pretty_print_tsv_table(Path(pretty_print))
         return
 
     # TODO: Add as custom name for --test, so we don't need to do reassingment

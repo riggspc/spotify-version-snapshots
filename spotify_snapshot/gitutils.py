@@ -8,9 +8,11 @@ from spotify_snapshot import spotify
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
+from spotify_snapshot.spotify_datatypes import DeletedPlaylist
 from rich.prompt import Prompt
 from .config import SpotifySnapshotConfig
 from .logging import get_colorized_logger
+from typing import Optional, Union
 
 _repo_instance = None
 
@@ -85,8 +87,8 @@ def setup_git_repo_if_needed(is_test_mode) -> Path:
                 )
                 repo = git.Repo.clone_from(config.git_remote_url, repo_filepath)
                 # Set up the remote properly after cloning
-                if "origin" in repo.remotes:
-                    repo.delete_remote("origin")
+                if "origin" in [remote.name for remote in repo.remotes]:
+                    repo.delete_remote(repo.remote("origin"))
                 repo.create_remote("origin", config.git_remote_url)
             except git.GitCommandError:
                 # If clone fails (e.g., empty remote), check if directory exists and is empty
@@ -111,14 +113,14 @@ def setup_git_repo_if_needed(is_test_mode) -> Path:
     return repo_filepath
 
 
-def cleanup_repo():
+def cleanup_repo() -> None:
     """Clean up the git repository instance."""
     global _repo_instance
     if _repo_instance is not None:
         _repo_instance.close()
 
 
-def commit_files(is_test_mode) -> None:
+def commit_files(is_test_mode: bool) -> None:
     logger = get_colorized_logger()
     repo = get_repo(is_test_mode)
 
@@ -151,7 +153,7 @@ def commit_files(is_test_mode) -> None:
 
 def get_deleted_playlists(
     repo: git.Repo, is_test_mode: bool
-) -> list[spotify.DeletedPlaylist]:
+) -> list[DeletedPlaylist]:
     """
     Returns a list of playlists that were deleted in the working directory changes
     """
@@ -163,11 +165,11 @@ def get_deleted_playlists(
     diff = repo.head.commit.diff(None)
     for diff_item in diff:
         # Convert both paths to strings for comparison
-        if output_manager.playlists_index_filename in diff_item.a_path:
+        if (diff_item.a_path is not None and 
+            output_manager.playlists_index_filename in diff_item.a_path):
             # Read the old version of the file from the last commit
-            old_content = (
-                diff_item.a_blob.data_stream.read().decode("utf-8").splitlines()
-            )
+            if diff_item.a_blob is not None:
+                old_content = diff_item.a_blob.data_stream.read().decode("utf-8").splitlines()
             # Read the current version from the working directory
             with open(output_manager.playlists_index_path, "r", encoding="utf-8") as f:
                 new_content = f.read().splitlines()
@@ -195,7 +197,7 @@ def get_deleted_playlists(
 
 def remove_deleted_playlists(
     repo: git.Repo, is_test_mode: bool
-) -> list[spotify.DeletedPlaylist]:
+) -> list[DeletedPlaylist]:
     """
     Removes the playlists that were deleted in the staged changes
     Returns: List of deleted playlists
@@ -216,7 +218,7 @@ def remove_deleted_playlists(
 
 
 def get_commit_message_for_amending(
-    repo: git.Repo, commit: Commit, deleted_playlists: list[spotify.DeletedPlaylist]
+    repo: git.Repo, commit: Commit, deleted_playlists: list[DeletedPlaylist]
 ) -> str:
     """
     Generate a contextually appropriate commit message (depending on whether this is the first commit or not)
@@ -231,13 +233,13 @@ def get_commit_message_for_amending(
     else:
         commit_title = f"Spotify Snapshot - {current_time}"
     stats = commit.stats
-    playlist_stats = {}
-    liked_songs_add_remove_stats = None
+    playlist_stats: dict[str, Union[int, dict[str, int]]] = {}
+    liked_songs_add_remove_stats: Optional[Union[int, dict[str, int]]] = None
 
     # Process playlist files and liked songs
     for changed_file in stats.files:
         # print(f"changed_file: {changed_file}")
-        if (output_manager.liked_songs_filename) != changed_file:
+        if str(output_manager.liked_songs_filename) != str(changed_file):
             continue
 
         file_stats = stats.files[changed_file]
@@ -291,12 +293,15 @@ def get_commit_message_for_amending(
 
         # Compare with parent commit to get changes
         for diff_item in commit.diff(commit.parents[0] if commit.parents else None):
-            if diff_item.renamed_file and diff_item.a_path.startswith("playlists/"):
+            if (diff_item.renamed_file and 
+                diff_item.a_path is not None and 
+                diff_item.b_path is not None and 
+                diff_item.a_path.startswith("playlists/")):
                 # Extract everything before the last parenthetical for both old and new names
-                old_name = diff_item.a_path.split("/")[-1].rsplit(" (", 1)[0]
-                new_name = diff_item.b_path.split("/")[-1].rsplit(" (", 1)[0]
+                old_name = str(diff_item.a_path).split("/")[-1].rsplit(" (", 1)[0]
+                new_name = str(diff_item.b_path).split("/")[-1].rsplit(" (", 1)[0]
                 # Extract playlist ID from the filename
-                playlist_id = diff_item.a_path.rsplit("(", 1)[-1].rstrip(").tsv")
+                playlist_id = str(diff_item.a_path).rsplit("(", 1)[-1].rstrip(").tsv")
                 renamed_playlists.append((old_name, new_name))
                 renamed_playlist_ids.add(playlist_id)
 
@@ -310,13 +315,12 @@ def get_commit_message_for_amending(
         # Compare with parent commit to get changes
         created_playlists = []
         for diff_item in commit.diff(commit.parents[0] if commit.parents else None):
-            if (
-                not diff_item.renamed_file
-                and diff_item.new_file
-                and diff_item.b_path.startswith("playlists/")
-            ):
+            if (not diff_item.renamed_file and 
+                diff_item.new_file and 
+                diff_item.b_path is not None and 
+                diff_item.b_path.startswith("playlists/")):
                 # Extract everything before the last parenthetical (which contains the ID)
-                playlist_name = diff_item.b_path.split("/")[-1].rsplit(" (", 1)[0]
+                playlist_name = str(diff_item.b_path).split("/")[-1].rsplit(" (", 1)[0]
                 created_playlists.append(playlist_name)
 
         if created_playlists:

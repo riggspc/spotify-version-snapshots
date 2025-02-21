@@ -79,6 +79,16 @@ dependencies = [
 	"pytest-cov",
 ]
 
-[tool.hatch.envs.test.scripts]
-test = "pytest"
-cov = "pytest --cov-report term-missing --cov=spotify_snapshot"
+[tool.hatch.envs.lint]
+dependencies = [
+	"black",
+	"flake8",
+	"mypy",
+]
+
+[tool.hatch.envs.lint.scripts]
+style = [
+	"black .",
+	"flake8 .",
+	"mypy .",
+]

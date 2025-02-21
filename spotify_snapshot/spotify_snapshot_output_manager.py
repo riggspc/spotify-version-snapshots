@@ -65,7 +65,7 @@ class SpotifySnapshotOutputManager:
     def playlists_dir_path(self) -> Path:
         return self.base_dir / "playlists"
 
-    def ensure_output_dirs(self):
+    def ensure_output_dirs(self) -> None:
         """Ensure all output directories exist"""
         logger = get_colorized_logger()
         if not self.base_dir.exists():

@@ -11,7 +11,7 @@ import sys
 console = Console()
 
 
-def get_spotify_snapshot_executable_path():
+def get_spotify_snapshot_executable_path() -> str:
     # Check if executable is installed on $PATH
     which = shutil.which("spotify-snapshot")
     if which:
@@ -72,7 +72,7 @@ def install_crontab_entry(interval_hours: int = 8) -> None:
     )
 
 
-def uninstall_crontab_entry():
+def uninstall_crontab_entry() -> None:
     logger = get_colorized_logger()
     logger.info("Removing crontab entry if it exists...")
     user_cron = CronTab(user=True)

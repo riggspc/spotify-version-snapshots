@@ -5,6 +5,7 @@ from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
 from spotify_snapshot.install import install_crontab_entry
+from spotify_snapshot.logging import configure_logging_to_syslog
 from pathlib import Path
 
 API_REQUEST_SLEEP_TIME_SEC = 0.5
@@ -85,6 +86,8 @@ def main(
     install,
 ):
     """Fetch and snapshot Spotify library data."""
+
+    configure_logging_to_syslog()
 
     # Handle install request if specified
     if install:

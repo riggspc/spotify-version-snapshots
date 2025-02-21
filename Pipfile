@@ -9,6 +9,7 @@ gitpython = "*"
 rich = "*"
 black = "*"
 click = "*"
+loguru = "*"
 
 [dev-packages]
 black = "*"      # For code formatting

@@ -14,6 +14,7 @@ crontab = "*"
 python-crontab = "*"
 tomli = "*"
 tomli-w = "*"
+requests = "*"
 
 [dev-packages]
 black = "*"      # For code formatting

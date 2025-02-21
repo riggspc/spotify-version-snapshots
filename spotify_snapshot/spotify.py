@@ -9,6 +9,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Optional, Dict
 from rich import print as rprint
+import requests
 
 
 @dataclass
@@ -116,13 +117,16 @@ API_REQUEST_LIMIT = 50
 def _fetch_paginated_tracks(
     sp_client: spotipy.Spotify,
     initial_results: SpotifyPlaylistTracksResponse,
+    max_retries: int = 3,
+    retry_delay: float = 2.0,
 ) -> dict:
     """Helper function to handle paginated track fetching from Spotify API.
 
     Args:
         sp_client: Authenticated Spotify client
         initial_results: First page of results from API
-        test_mode: If True, only fetch first page
+        max_retries: Maximum number of retry attempts for failed requests
+        retry_delay: Delay in seconds between retries
 
     Returns:
         Dictionary of track_id -> track_item
@@ -148,7 +152,27 @@ def _fetch_paginated_tracks(
 
         if results["next"]:
             time.sleep(API_REQUEST_SLEEP_TIME_SEC)
-            results = sp_client.next(results)
+
+            # Add retry logic for the next() call
+            for attempt in range(max_retries):
+                try:
+                    results = sp_client.next(results)
+                    break
+                except requests.exceptions.ReadTimeout:
+                    if attempt == max_retries - 1:
+                        rprint(
+                            f"[red]Error:[/red] Failed to fetch tracks after {max_retries} attempts due to timeout"
+                        )
+                        rprint(
+                            f"[yellow]Successfully fetched {total_tracks_fetched} tracks before error[/yellow]"
+                        )
+                        return tracks_dict
+
+                    wait_time = retry_delay * (attempt + 1)
+                    rprint(
+                        f"[yellow]Request timed out. Retrying in {wait_time} seconds... (Attempt {attempt + 1}/{max_retries})[/yellow]"
+                    )
+                    time.sleep(wait_time)
         else:
             break
 

@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Optional
-from loguru import logger
+
 from spotify_snapshot.logging import get_colorized_logger
 
 

@@ -1,12 +1,14 @@
-from rich.console import Console
-import shutil
-from pathlib import Path
 import inspect
 import os.path
-from crontab import CronTab, CronItem
-from loguru import logger
-from spotify_snapshot.logging import get_colorized_logger
+import shutil
 import sys
+from pathlib import Path
+
+from crontab import CronItem, CronTab
+from loguru import logger
+from rich.console import Console
+
+from spotify_snapshot.logging import get_colorized_logger
 
 console = Console()
 
@@ -22,7 +24,7 @@ def get_spotify_snapshot_executable_path() -> str:
         current_frame = inspect.currentframe()
         if current_frame is None:
             raise RuntimeError("Could not get current frame")
-            
+
         filename = inspect.getframeinfo(current_frame).filename
         logger.info(f"Filename: {filename}")
         path = os.path.dirname(os.path.abspath(filename))

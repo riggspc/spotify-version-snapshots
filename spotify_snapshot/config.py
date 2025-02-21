@@ -1,18 +1,18 @@
-from pathlib import Path
-import tomllib  # Python 3.11+
-import tomli_w
 import os
+import tomllib  # Python 3.11+
 from dataclasses import dataclass
-from typing import Optional
+from pathlib import Path
+
+import tomli_w
 from rich.prompt import Prompt
-from loguru import logger
+
 from spotify_snapshot.logging import get_colorized_logger
 
 
 @dataclass
 class SpotifySnapshotConfig:
-    git_remote_url: Optional[str] = None
-    backup_dir: Optional[Path] = None
+    git_remote_url: str | None = None
+    backup_dir: Path | None = None
     backup_interval_hours: int = 8
 
     @classmethod

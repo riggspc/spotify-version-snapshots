@@ -1,19 +1,20 @@
-import git
-from loguru import logger
-from datetime import datetime
 import os
-from git import NoSuchPathError, Commit
+from datetime import datetime
 from pathlib import Path
+
+import git
+from git import Commit, NoSuchPathError
+from rich.prompt import Prompt
+
 from spotify_snapshot import spotify
+from spotify_snapshot.spotify import DeletedPlaylist
+from spotify_snapshot.spotify_datatypes import DeletedPlaylist
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
-from spotify_snapshot.spotify_datatypes import DeletedPlaylist
-from rich.prompt import Prompt
+
 from .config import SpotifySnapshotConfig
 from .logging import get_colorized_logger
-from typing import Optional, Union
-from spotify_snapshot.spotify import DeletedPlaylist
 
 _repo_instance = None
 
@@ -117,7 +118,6 @@ def setup_git_repo_if_needed(is_test_mode) -> Path:
 
 def cleanup_repo() -> None:
     """Clean up the git repository instance."""
-    global _repo_instance
     if _repo_instance is not None:
         _repo_instance.close()
 
@@ -167,13 +167,13 @@ def get_deleted_playlists(
     diff = repo.head.commit.diff(None)
     for diff_item in diff:
         # Convert both paths to strings for comparison
-        if (diff_item.a_path is not None and 
+        if (diff_item.a_path is not None and
             output_manager.playlists_index_filename in diff_item.a_path):
             # Read the old version of the file from the last commit
             if diff_item.a_blob is not None:
                 old_content = diff_item.a_blob.data_stream.read().decode("utf-8").splitlines()
             # Read the current version from the working directory
-            with open(output_manager.playlists_index_path, "r", encoding="utf-8") as f:
+            with open(output_manager.playlists_index_path, encoding="utf-8") as f:
                 new_content = f.read().splitlines()
 
             # TODO: Handle the case where the new version has no playlists
@@ -206,7 +206,7 @@ def remove_deleted_playlists(
     """
     logger = get_colorized_logger()
     try:
-        repo.head.commit  # Check if there are any commits
+        _ = repo.head.commit  # Check if there are any commits
     except ValueError:  # No commits yet
         logger.info("<yellow>First commit detected. No playlists to delete.</yellow>")
         return []
@@ -229,14 +229,14 @@ def get_commit_message_for_amending(
     """
     output_manager = SpotifySnapshotOutputManager.get_instance()
     is_first_commit = len(commit.parents) == 0
-    current_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+    current_time = datetime.now(tz=datetime.UTC).strftime("%m/%d/%Y, %H:%M:%S")
     if is_first_commit:
         commit_title = f"Initial Spotify Snapshot - {current_time}"
     else:
         commit_title = f"Spotify Snapshot - {current_time}"
     stats = commit.stats
-    playlist_stats: dict[str, Union[int, dict[str, int]]] = {}
-    liked_songs_add_remove_stats: Optional[Union[int, dict[str, int]]] = None
+    playlist_stats: dict[str, int | dict[str, int]] = {}
+    liked_songs_add_remove_stats: int | dict[str, int] | None = None
 
     # Process playlist files and liked songs
     for changed_file in stats.files:
@@ -270,7 +270,7 @@ def get_commit_message_for_amending(
     liked_songs_count = None
     liked_songs_file = output_manager.liked_songs_path
     if os.path.exists(liked_songs_file):
-        with open(liked_songs_file, "r", encoding="utf-8") as f:
+        with open(liked_songs_file, encoding="utf-8") as f:
             liked_songs_count = len(f.readlines()) - 1
 
     commit_details = []
@@ -295,9 +295,9 @@ def get_commit_message_for_amending(
 
         # Compare with parent commit to get changes
         for diff_item in commit.diff(commit.parents[0] if commit.parents else None):
-            if (diff_item.renamed_file and 
-                diff_item.a_path is not None and 
-                diff_item.b_path is not None and 
+            if (diff_item.renamed_file and
+                diff_item.a_path is not None and
+                diff_item.b_path is not None and
                 diff_item.a_path.startswith("playlists/")):
                 # Extract everything before the last parenthetical for both old and new names
                 old_name = str(diff_item.a_path).split("/")[-1].rsplit(" (", 1)[0]
@@ -317,9 +317,9 @@ def get_commit_message_for_amending(
         # Compare with parent commit to get changes
         created_playlists = []
         for diff_item in commit.diff(commit.parents[0] if commit.parents else None):
-            if (not diff_item.renamed_file and 
-                diff_item.new_file and 
-                diff_item.b_path is not None and 
+            if (not diff_item.renamed_file and
+                diff_item.new_file and
+                diff_item.b_path is not None and
                 diff_item.b_path.startswith("playlists/")):
                 # Extract everything before the last parenthetical (which contains the ID)
                 playlist_name = str(diff_item.b_path).split("/")[-1].rsplit(" (", 1)[0]
@@ -432,7 +432,7 @@ def maybe_git_push(
             success_msg = f"Successfully pushed changes to {url}!"
             logger.info(success_msg)
         except git.GitCommandError as e:
-            error_msg = f"Failed to push changes: {str(e)}"
+            error_msg = f"Failed to push changes: {e!s}"
             logger.error(error_msg)
             logger.error(f"Git command failed with exit code {e.status}")
             logger.error(f"Git stderr: {e.stderr}")

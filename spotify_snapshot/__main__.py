@@ -1,17 +1,19 @@
-import click
 import os
 import subprocess
-from typing import Optional
 from pathlib import Path
+from sys import exit
+
+import click
 from rich import print as rprint
-from spotify_snapshot import gitutils, spotify, outputfileutils
+
+from spotify_snapshot import gitutils, outputfileutils, spotify
+from spotify_snapshot.__about__ import __version__
+from spotify_snapshot.config import SpotifySnapshotConfig
+from spotify_snapshot.install import install_crontab_entry
+from spotify_snapshot.logging import configure_logging, get_colorized_logger
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
-from spotify_snapshot.install import install_crontab_entry
-from spotify_snapshot.logging import configure_logging, get_colorized_logger
-from spotify_snapshot.__about__ import __version__
-from spotify_snapshot.config import SpotifySnapshotConfig
 
 API_REQUEST_SLEEP_TIME_SEC = 0.5
 # For albums, playlists, etc - the Spotify API has a (current) max of 50 things
@@ -39,7 +41,9 @@ API_REQUEST_LIMIT = 50
 
 @click.command(
     epilog="See the project homepage for more details: https://github.com/alichtman/spotify-snapshot",
-    context_settings=dict(help_option_names=["-h", "-help", "--help"]),
+    context_settings={
+        "help_option_names": ["-h", "-help", "--help"],
+    },
 )
 @click.option(
     "-t",
@@ -97,7 +101,7 @@ def main(
     backup_liked_songs: bool,
     backup_saved_albums: bool,
     backup_playlists: bool,
-    pretty_print: Optional[str],
+    pretty_print: str | None,
     install: bool,
     version: bool,
     edit_config: bool,

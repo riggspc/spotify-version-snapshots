@@ -20,6 +20,7 @@ dependencies = [
 	"tomli",
 	"tomli-w",
 	"requests",
+	"types-requests",
 ]
 
 [project.urls]

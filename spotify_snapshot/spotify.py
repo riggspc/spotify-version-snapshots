@@ -1,29 +1,22 @@
-from spotify_snapshot import outputfileutils, env_utils
+import time
+from os import chmod, getenv
+from pathlib import Path
+
+import requests
+import spotipy
+
+from spotify_snapshot import env_utils, outputfileutils
+from spotify_snapshot.logging import get_colorized_logger
+from spotify_snapshot.spotify_datatypes import (
+    DeletedPlaylist,
+    SpotifyPlaylist,
+    SpotifyPlaylistsResponse,
+    SpotifyPlaylistTrackItem,
+    SpotifyPlaylistTracksResponse,
+)
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
-from spotify_snapshot.logging import get_colorized_logger
-import spotipy
-import time
-from os import getenv, chmod
-from pathlib import Path
-from dataclasses import dataclass
-from typing import List, Dict
-import requests
-from spotify_snapshot.spotify_datatypes import (
-    SpotifyUser,
-    SpotifyTracks,
-    SpotifyPlaylist,
-    SpotifyAlbum,
-    SpotifyArtist,
-    SpotifyTrack,
-    SpotifyAddedBy,
-    SpotifyPlaylistTrackItem,
-    SpotifyPlaylistTracksResponse,
-    SpotifyPlaylistsResponse,
-    DeletedPlaylist,
-)
-
 
 #####
 # Spotify Operations
@@ -59,14 +52,14 @@ def _fetch_paginated_tracks(
     skipped_tracks = []
 
     while True:
-        result_items: List[SpotifyPlaylistTrackItem] = results["items"]
+        result_items: list[SpotifyPlaylistTrackItem] = results["items"]
         total_tracks_fetched += len(result_items)
         logger.info(
             f"<green>Fetched</green> {total_tracks_fetched} / {results['total']} <green>tracks</green>"
         )
 
         for item in result_items:
-            track = item.get("track")
+            track = item["track"]
             if track is None:
                 skipped_tracks.append(item)
                 continue
@@ -82,7 +75,7 @@ def _fetch_paginated_tracks(
                     break
                 except requests.exceptions.ReadTimeout:
                     if attempt == max_retries - 1:
-                        logger.error(
+                        logger.exception(
                             f"<red>Failed to fetch tracks after {max_retries} attempts due to timeout</red>"
                         )
                         logger.warning(
@@ -150,7 +143,7 @@ def get_saved_albums(sp_client: spotipy.Spotify) -> dict:
     return saved_albums
 
 
-def get_playlists(sp_client: spotipy.Spotify) -> Dict[str, SpotifyPlaylist]:
+def get_playlists(sp_client: spotipy.Spotify) -> dict[str, SpotifyPlaylist]:
     logger = get_colorized_logger()
     saved_playlists = {}
     results: SpotifyPlaylistsResponse = sp_client.current_user_playlists(
@@ -162,7 +155,7 @@ def get_playlists(sp_client: spotipy.Spotify) -> Dict[str, SpotifyPlaylist]:
     )
 
     while True:
-        playlists: List[SpotifyPlaylist] = results["items"]
+        playlists: list[SpotifyPlaylist] = results["items"]
         logger.info(f"<green>Fetched</green> {len(playlists)} playlists")
 
         for playlist in playlists:

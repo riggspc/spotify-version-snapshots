@@ -1,14 +1,16 @@
+import csv
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, TypeVar
+
 from rich.console import Console
 from rich.table import Table
-from pathlib import Path
-import csv
-from typing import Callable, Any, TypeVar, Union
+
 from spotify_snapshot.logging import get_colorized_logger
 from spotify_snapshot.spotify_datatypes import (
-    SpotifyPlaylistTrackItem,
-    SpotifyPlaylist,
-    SpotifyTrack,
     SpotifyAlbum,
+    SpotifyPlaylist,
+    SpotifyPlaylistTrackItem,
 )
 
 TRACK_HEADER_ROW = ["TRACK NAME", "TRACK ARTIST(S)", "ALBUM", "DATE ADDED", "TRACK ID"]
@@ -46,12 +48,11 @@ def write_to_file(
         f"<blue>Writing to</blue> <green><bold>{output_filename}</bold></green>"
     )
 
-    sorted_list = sorted(list(data.values()), key=sort_lambda)
+    sorted_list = sorted(data.values(), key=sort_lambda)
     output_rows = [header_row]
-    for item in sorted_list:
-        output_rows.append(item_to_row_lambda(item))
+    output_rows.extend([item_to_row_lambda(item) for item in sorted_list])
 
-    with open(output_filename, "wt") as out_file:
+    with open(output_filename, "w") as out_file:
         tsv_writer = csv.writer(out_file, delimiter="\t")
         tsv_writer.writerows(output_rows)
 
@@ -60,7 +61,7 @@ def track_to_row(item: SpotifyPlaylistTrackItem) -> list[str]:
     track_obj = item["track"]
     return [
         track_obj["name"],
-        ", ".join(map(lambda artist: artist["name"], track_obj["artists"])),
+        ", ".join(artist["name"] for artist in track_obj["artists"]),
         track_obj["album"]["name"],
         item["added_at"],
         track_obj["id"],
@@ -77,7 +78,7 @@ def playlist_track_to_row(item: SpotifyPlaylistTrackItem) -> list[str]:
     return [*track_row[:-1], added_by_id, *track_row[-1:]]
 
 
-def album_to_row(item: dict[str, Union[str, SpotifyAlbum]]) -> list[str]:
+def album_to_row(item: dict[str, str | SpotifyAlbum]) -> list[str]:
     album_obj = item["album"]
     return [
         album_obj["name"],
@@ -99,7 +100,7 @@ def playlist_to_row(item: SpotifyPlaylist) -> list[str]:
 
 
 def pretty_print_tsv_table(tsv_data_path: Path) -> None:
-    with open(tsv_data_path, "r") as tsv_file:
+    with open(tsv_data_path) as tsv_file:
         tsv_data = [line.strip().split("\t") for line in tsv_file.readlines()]
     table = Table(show_header=True, header_style="bold magenta")
     for header in tsv_data[0]:

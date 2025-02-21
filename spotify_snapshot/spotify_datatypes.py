@@ -1,18 +1,17 @@
 from dataclasses import dataclass
-from typing import List, Optional, Dict
 
 
 @dataclass
 class SpotifyImage:
-    height: Optional[int]
-    width: Optional[int]
+    height: int | None
+    width: int | None
     url: str
 
 
 @dataclass
 class SpotifyUser:
     display_name: str
-    external_urls: Dict[str, str]
+    external_urls: dict[str, str]
     href: str
     id: str
     type: str
@@ -29,13 +28,13 @@ class SpotifyTracks:
 class SpotifyPlaylist:
     collaborative: bool
     description: str
-    external_urls: Dict[str, str]
+    external_urls: dict[str, str]
     href: str
     id: str
-    images: List[SpotifyImage]
+    images: list[SpotifyImage]
     name: str
     owner: SpotifyUser
-    primary_color: Optional[str]
+    primary_color: str | None
     public: bool
     snapshot_id: str
     tracks: SpotifyTracks
@@ -57,7 +56,7 @@ class SpotifyArtist:
 @dataclass
 class SpotifyTrack:
     album: SpotifyAlbum
-    artists: List[SpotifyArtist]
+    artists: list[SpotifyArtist]
     name: str
     id: str
 
@@ -76,19 +75,19 @@ class SpotifyPlaylistTrackItem:
 
 @dataclass
 class SpotifyPlaylistTracksResponse:
-    items: List[SpotifyPlaylistTrackItem]
-    next: Optional[str]
+    items: list[SpotifyPlaylistTrackItem]
+    next: str | None
     total: int
 
 
 @dataclass
 class SpotifyPlaylistsResponse:
-    items: List[SpotifyPlaylist]
-    next: Optional[str]
+    items: list[SpotifyPlaylist]
+    next: str | None
     total: int
 
 
 @dataclass
 class DeletedPlaylist:
     name: str
-    id: str 
+    id: str

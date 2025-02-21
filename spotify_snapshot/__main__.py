@@ -84,6 +84,12 @@ API_REQUEST_LIMIT = 50
     default=False,
     help="Open the config file in your default editor ($EDITOR)",
 )
+@click.option(
+    "--push",
+    is_flag=True,
+    default=False,
+    help="Push changes to the remote repository.",
+)
 def main(
     test,
     backup_all,
@@ -157,7 +163,7 @@ def main(
         spotify.write_playlists_to_git_repo(sp_client)
 
     gitutils.commit_files(is_test_mode)
-    gitutils.maybe_git_push(is_test_mode, should_prompt_user=True)
+    gitutils.maybe_git_push(is_test_mode, should_push_without_prompting_user=push)
     gitutils.cleanup_repo()
     exit(0)
 

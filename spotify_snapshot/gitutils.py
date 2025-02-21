@@ -1,4 +1,5 @@
 import git
+from loguru import logger
 from datetime import datetime
 from rich import print as rprint
 import os
@@ -37,7 +38,29 @@ def get_repo(is_test_mode: bool = False) -> git.Repo:
     return _repo_instance
 
 
-def setup_git_repo_if_needed(is_test_mode) -> None:
+def create_readme_if_missing(repo_filepath: Path) -> None:
+    """Create a README.md file if it doesn't exist in the repository.
+
+    Args:
+        repo_filepath: Path to the git repository
+    """
+    readme_path = repo_filepath / "README.md"
+    if not readme_path.exists():
+        logger.info("Creating README.md file")
+        with open(readme_path, "w", encoding="utf-8") as f:
+            f.write(
+                """# Spotify Playlist Backup
+
+This repository contains automated backups of your Spotify playlists and liked songs, created using [spotify-snapshot](https://github.com/alichtman/spotify-snapshot).
+
+Each playlist is stored as a TSV (Tab Separated Values) file in the `playlists` directory, and liked songs are stored in `liked_songs.tsv`.
+
+The backup is automatically updated when changes are detected in your Spotify library."""
+            )
+        logger.info("Created README.md file")
+
+
+def setup_git_repo_if_needed(is_test_mode) -> Path:
     repo_filepath = get_repo_filepath(is_test_mode)
     config = SpotifySnapshotConfig.load()
 
@@ -48,6 +71,7 @@ def setup_git_repo_if_needed(is_test_mode) -> None:
             rprint(
                 f"[yellow]Found existing repo at[/yellow] [green][bold]{repo_filepath}[/bold][/green]"
             )
+            create_readme_if_missing(repo_filepath)
         else:
             raise NoSuchPathError
 
@@ -75,6 +99,9 @@ def setup_git_repo_if_needed(is_test_mode) -> None:
             )
             os.makedirs(repo_filepath, exist_ok=True)
             git.Repo.init(repo_filepath)
+
+    create_readme_if_missing(repo_filepath)
+    return repo_filepath
 
 
 def cleanup_repo():

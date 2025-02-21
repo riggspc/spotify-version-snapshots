@@ -49,12 +49,6 @@ You can set up automatic backups that run every 8 hours using the built-in cronj
 $ spotify-snapshot --install
 ```
 
-This will:
-
-- Install a cronjob that runs every 8 hours
-- Run in production mode (equivalent to `--prod-run`)
-- Backup your entire library (liked songs, saved albums, and playlists)
-
 To manually check when the next backup will run:
 
 ```bash

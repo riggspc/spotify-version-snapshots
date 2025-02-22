@@ -1,11 +1,14 @@
 # `spotify-snapshot`
 
-Easily snapshot the state of your `Spotify` library/playlists/etc, and store it in version control.
+Easily snapshot (and schedule repeated snapshots of) the state of your `Spotify` library / playlists / etc, and store it in version control.
 
-If Spotify ever disappears, you'll have a backup of your music library. And you'll have the ability to track your Spotify world as it evolves over time.
+## Why?
+
+- **Most important:** If Spotify ever disappears or has a mass dataloss event, you'll have a current backup of your music library. 
+- **Less important:** You can track your Spotify world as it evolves over time (and use `git` tooling to analyze it).
 
 > [!WARNING]  
-> This tool is limited by the [Spotify API](https://developer.spotify.com/documentation/web-api/reference/get-users-saved-albums). For example, it can not access "Spotify Wrapped" playlists, or playlists generated for you by Spotify.
+> This tool is limited by the [Spotify API](https://developer.spotify.com/documentation/web-api/reference/get-users-saved-albums) and [`spotipy`](https://github.com/spotipy-dev/spotipy/). For example, it can not access "Spotify Wrapped" playlists, or playlists generated for you by Spotify.
 
 ## Quickstart
 

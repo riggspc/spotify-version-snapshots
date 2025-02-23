@@ -5,7 +5,7 @@ from pathlib import Path
 import requests
 import spotipy
 
-from spotify_snapshot import env_utils, outputfileutils
+from spotify_snapshot import outputfileutils
 from spotify_snapshot.logging import get_colorized_logger
 from spotify_snapshot.spotify_datatypes import (
     DeletedPlaylist,
@@ -17,6 +17,11 @@ from spotify_snapshot.spotify_datatypes import (
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
+from spotify_snapshot.exceptions import InvalidSpotifyCredentialsError
+from dataclasses import dataclass
+import keyring
+from rich.prompt import Prompt
+
 
 #####
 # Spotify Operations
@@ -26,6 +31,94 @@ API_REQUEST_SLEEP_TIME_SEC = 0.5
 # For albums, playlists, etc - the Spotify API has a (current) max of 50 things
 # it can fetch at a time
 API_REQUEST_LIMIT = 50
+
+
+
+
+@dataclass
+class SpotifyCredentials:
+    """Container for Spotify API credentials."""
+
+    client_id: str
+    client_secret: str
+
+
+class SpotifyCredentialsManager:
+    """Manager for Spotify API credentials."""
+
+    SERVICE_NAME = "spotify-snapshot"
+
+    @classmethod
+    def get_credentials(cls) -> SpotifyCredentials:
+        """Get Spotify API credentials from keyring or environment."""
+        # Try to get from keyring
+        client_id = keyring.get_password(SpotifyCredentialsManager.SERVICE_NAME, "client_id")
+        client_secret = keyring.get_password(SpotifyCredentialsManager.SERVICE_NAME, "client_secret")
+
+        # If either credential is missing, prompt user
+        if not client_id or not client_secret:
+            return cls.prompt_and_store_credentials()
+
+        return SpotifyCredentials(client_id, client_secret)
+
+    @classmethod
+    def prompt_and_store_credentials(cls) -> SpotifyCredentials:
+        """Prompt user for credentials and store them."""
+        logger = get_colorized_logger()
+        logger.info("Please enter your Spotify API credentials.")
+        logger.info("To get these credentials:")
+        logger.info("1. Go to https://developer.spotify.com/dashboard")
+        logger.info("2. Create a new application")
+        logger.info("3. Set the callback URL to http://localhost:8000/callback")
+        logger.info("4. Copy the Client ID and Client Secret\n")
+
+        client_id = Prompt.ask("Enter your Spotify Client ID")
+        client_secret = Prompt.ask("Enter your Spotify Client Secret", password=True)
+
+        # Store credentials
+        SpotifyCredentialsManager.store_credentials(client_id, client_secret)
+        return SpotifyCredentials(client_id, client_secret)
+
+    @classmethod
+    def store_credentials(cls, client_id: str, client_secret: str) -> None:
+        """Store Spotify API credentials in system keyring."""
+        logger = get_colorized_logger()
+        logger.info("Storing credentials in keyring...")
+        keyring.set_password(SpotifyCredentialsManager.SERVICE_NAME, "client_id", client_id)
+        keyring.set_password(SpotifyCredentialsManager.SERVICE_NAME, "client_secret", client_secret)
+        logger.info("<green>Credentials stored successfully!</green>")
+
+    @classmethod
+    def remove_stored_credentials(cls) -> None:
+        """Remove stored credentials from system keyring."""
+        logger = get_colorized_logger()
+        try:
+            keyring.delete_password(SpotifyCredentialsManager.SERVICE_NAME, "client_id")
+            keyring.delete_password(SpotifyCredentialsManager.SERVICE_NAME, "client_secret")
+            logger.info("<green>Credentials removed successfully!</green>")
+        except keyring.errors.PasswordDeleteError:
+            logger.info("<yellow>No credentials found to remove.</yellow>")
+
+    @classmethod
+    def ensure_spotify_credentials(cls) -> SpotifyCredentials:
+        """Ensure Spotify credentials are available in keyring."""
+        logger = get_colorized_logger()
+
+        credentials = SpotifyCredentialsManager.get_credentials()
+        if credentials.client_id and credentials.client_secret:
+            return credentials
+
+        logger.info(
+            "\n<yellow>Spotify API credentials not found. Let's set them up!</yellow>"
+        )
+        credentials = SpotifyCredentialsManager.prompt_and_store_credentials()
+
+        if credentials.client_id and credentials.client_secret:
+            logger.info("<green>✓ Spotify API credentials set up successfully!</green>")
+            return credentials
+        else:
+            logger.error("<red>Failed to set up Spotify API credentials.</red>")
+            exit(1)
 
 
 def _fetch_paginated_tracks(
@@ -177,36 +270,35 @@ def get_username(sp_client: spotipy.Spotify) -> str:
 def create_spotify_client() -> spotipy.Spotify:
     """Create and return an authenticated Spotify client.
 
-    Args:
-        client_id: Spotify API client ID
-        client_secret: Spotify API client secret
-
-    Returns:
-        An authenticated Spotify client instance
+    Raises:
+        InvalidSpotifyCredentialsError: If the provided credentials are invalid
     """
     logger = get_colorized_logger()
     logger.info("<blue>Creating Spotify client...</blue>")
-    client_id = env_utils.get_required_env_var("SPOTIFY_BACKUP_CLIENT_ID")
-    client_secret = env_utils.get_required_env_var("SPOTIFY_BACKUP_CLIENT_SECRET")
+
+    creds = SpotifyCredentialsManager.get_credentials()
 
     base_cache_path = Path(getenv("XDG_CACHE_HOME", Path.home() / ".cache"))
-    cache_path = base_cache_path / "spotify-backup/.auth_cache"
+    cache_path = base_cache_path / "spotify-backup" / ".auth_cache"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=str(cache_path))
 
-    client = spotipy.Spotify(
-        auth_manager=spotipy.oauth2.SpotifyOAuth(
-            client_id=client_id,
-            client_secret=client_secret,
-            redirect_uri="http://localhost:8000/callback",
-            cache_handler=cache_handler,
-            scope=[
-                "user-library-read",
-                "playlist-read-private",
-                "playlist-read-collaborative",
-            ],
+    try:
+        client = spotipy.Spotify(
+            auth_manager=spotipy.oauth2.SpotifyOAuth(
+                client_id=creds.client_id,
+                client_secret=creds.client_secret,
+                redirect_uri="http://localhost:8000/callback",
+                cache_handler=cache_handler,
+                scope=[
+                    "user-library-read",
+                    "playlist-read-private",
+                    "playlist-read-collaborative",
+                ],
+            )
         )
-    )
+    except Exception as e:
+        raise InvalidSpotifyCredentialsError(f"Invalid credentials: {e}")
 
     # Spotipy does not set the permissions on the cache file correctly, so we do it manually
     # I filed https://github.com/spotipy-dev/spotipy/security/advisories/GHSA-pwhh-q4h6-w599

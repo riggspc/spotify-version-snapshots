@@ -86,6 +86,8 @@ def uninstall_crontab_entry() -> None:
     logger = get_colorized_logger()
     logger.info("Removing crontab entry if it exists...")
     user_cron = CronTab(user=True)
-    logger.info(f"Current crontab entries for this program: {get_crontab_entries(user_cron)}")
+    logger.info(
+        f"Current crontab entries for this program: {get_crontab_entries(user_cron)}"
+    )
     user_cron.remove_all(comment=CRONTAB_COMMENT)
     user_cron.write()

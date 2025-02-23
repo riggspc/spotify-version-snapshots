@@ -4,7 +4,7 @@ Easily snapshot (and schedule repeated snapshots of) the state of your `Spotify`
 
 ## Why?
 
-- **Most important:** If Spotify ever disappears or has a mass dataloss event, you'll have a current backup of your music library. 
+- **Most important:** If Spotify ever disappears or has a mass dataloss event, you'll have a current backup of your music library.
 - **Less important:** You can track your Spotify world as it evolves over time (and use `git` tooling to analyze it).
 
 > [!WARNING]  

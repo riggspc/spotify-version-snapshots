@@ -21,6 +21,7 @@ dependencies = [
 	"tomli-w",
 	"requests",
 	"types-requests",
+	"keyring>=25.0.0",
 ]
 
 [project.urls]
@@ -39,7 +40,9 @@ build-backend = "hatchling.build"
 path = "spotify_snapshot/__about__.py"
 
 [tool.hatch.build]
-include = ["spotify_snapshot/*"]
+include = [
+	"spotify_snapshot/*.py",
+]
 artifacts = ["dist/*"]
 
 [tool.mypy]
@@ -93,3 +96,6 @@ style = [
 	"flake8 .",
 	"mypy .",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["spotify_snapshot"]

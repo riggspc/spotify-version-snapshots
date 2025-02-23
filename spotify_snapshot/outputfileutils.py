@@ -29,7 +29,8 @@ TRACK_IN_PLAYLIST_HEADER_ROW = [
     *TRACK_HEADER_ROW[-1:],
 ]
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 def write_to_file(
     data: dict[str, T],

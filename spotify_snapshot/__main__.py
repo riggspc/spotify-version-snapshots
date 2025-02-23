@@ -6,19 +6,15 @@ from sys import exit
 import click
 from rich import print as rprint
 
-from spotify_snapshot import gitutils, outputfileutils, spotify
 from spotify_snapshot.__about__ import __version__
 from spotify_snapshot.config import SpotifySnapshotConfig
 from spotify_snapshot.install import install_crontab_entry, uninstall_crontab_entry
 from spotify_snapshot.logging import configure_logging, get_colorized_logger
+from spotify_snapshot import gitutils, outputfileutils, spotify
+from spotify_snapshot.spotify import SpotifyCredentialsManager
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
-
-API_REQUEST_SLEEP_TIME_SEC = 0.5
-# For albums, playlists, etc - the Spotify API has a (current) max of 50 things
-# it can fetch at a time
-API_REQUEST_LIMIT = 50
 
 
 @click.command(
@@ -83,6 +79,18 @@ API_REQUEST_LIMIT = 50
     default=False,
     help="Push changes to the remote repository.",
 )
+@click.option(
+    "--set-creds",
+    is_flag=True,
+    default=False,
+    help="Set Spotify API credentials in system keyring",
+)
+@click.option(
+    "--clear-creds",
+    is_flag=True,
+    default=False,
+    help="Remove Spotify API credentials from system keyring",
+)
 def main(
     test: bool,
     backup_all: bool,
@@ -95,9 +103,10 @@ def main(
     version: bool,
     edit_config: bool,
     push: bool,
+    set_creds: bool,
+    clear_creds: bool,
 ) -> None:
     """Fetch and snapshot Spotify library data."""
-
     logger = get_colorized_logger()
 
     if version:
@@ -106,10 +115,22 @@ def main(
         )
         return
 
+    # Handle credential management before other operations
+    if set_creds:
+        SpotifyCredentialsManager.prompt_and_store_credentials()
+        return
+
+    if clear_creds:
+        SpotifyCredentialsManager.remove_stored_credentials()
+        return
+
     configure_logging()
 
     # This will guide the user through creating the config file if it doesn't exist
     config = SpotifySnapshotConfig.load()
+
+    # Ensure Spotify credentials are configured
+    SpotifyCredentialsManager.ensure_spotify_credentials()
 
     # Handle uninstall request if specified
     if uninstall:

@@ -146,7 +146,9 @@ def commit_files(is_test_mode: bool, username: str) -> None:
     # A temp commit is needed to get stats etc - the library doesn't support it
     # otherwise
     commit = repo.index.commit("temp")
-    commit_message = get_commit_message_for_amending(commit, deleted_playlists, username)
+    commit_message = get_commit_message_for_amending(
+        commit, deleted_playlists, username
+    )
     logger.info(
         f"<green>Commit info:</green>\n\n<yellow><bold>{commit_message}</bold></yellow>"
     )
@@ -168,25 +170,34 @@ def get_deleted_playlists(
     diff = repo.head.commit.diff(None)
     for diff_item in diff:
         # Convert both paths to strings for comparison
-        if (diff_item.a_path is not None and
-            output_manager.playlists_index_filename in diff_item.a_path):
+        if (
+            diff_item.a_path is not None
+            and output_manager.playlists_index_filename in diff_item.a_path
+        ):
             # Read the old version of the file from the last commit
             if diff_item.a_blob is not None:
-                old_content = diff_item.a_blob.data_stream.read().decode("utf-8").splitlines()
+                old_content = (
+                    diff_item.a_blob.data_stream.read().decode("utf-8").splitlines()
+                )
             # Read the current version from the working directory
             with open(output_manager.playlists_index_path, encoding="utf-8") as f:
                 new_content = f.read().splitlines()
 
             # Extract playlist IDs from both old and new content
-            old_playlist_ids = {line.split("\t")[-1] for line in old_content if line.strip()}
-            new_playlist_ids = {line.split("\t")[-1] for line in new_content if line.strip()}
+            old_playlist_ids = {
+                line.split("\t")[-1] for line in old_content if line.strip()
+            }
+            new_playlist_ids = {
+                line.split("\t")[-1] for line in new_content if line.strip()
+            }
 
             # Find playlists that were actually deleted (present in old but not in new)
             deleted_playlist_ids = old_playlist_ids - new_playlist_ids
-            
+
             # Get the full playlist info for deleted playlists
             deleted_lines = [
-                line for line in old_content 
+                line
+                for line in old_content
                 if line.strip() and line.split("\t")[-1] in deleted_playlist_ids
             ]
             logger.info(f"\n<red>Found {len(deleted_lines)} deleted playlists</red>")
@@ -251,7 +262,7 @@ def get_commit_message_for_amending(
     # Process playlist files and liked songs
     for changed_file in stats.files:
         file_stats = stats.files[changed_file]
-        
+
         # Handle liked songs file
         if str(output_manager.liked_songs_filename) == str(changed_file):
             if is_first_commit:
@@ -264,7 +275,7 @@ def get_commit_message_for_amending(
                     "removed": file_stats["deletions"],
                 }
             continue
-            
+
         # Handle playlist files
         if changed_file.startswith("playlists/"):
             playlist_name = changed_file.split("/")[-1].replace(".tsv", "")
@@ -308,10 +319,12 @@ def get_commit_message_for_amending(
 
         # Compare with parent commit to get changes
         for diff_item in commit.diff(commit.parents[0] if commit.parents else None):
-            if (diff_item.renamed_file and
-                diff_item.a_path is not None and
-                diff_item.b_path is not None and
-                diff_item.a_path.startswith("playlists/")):
+            if (
+                diff_item.renamed_file
+                and diff_item.a_path is not None
+                and diff_item.b_path is not None
+                and diff_item.a_path.startswith("playlists/")
+            ):
                 # Extract everything before the last parenthetical for both old and new names
                 old_name = str(diff_item.a_path).split("/")[-1].rsplit(" (", 1)[0]
                 new_name = str(diff_item.b_path).split("/")[-1].rsplit(" (", 1)[0]
@@ -331,12 +344,17 @@ def get_commit_message_for_amending(
         # TODO: This method is kind of a mess. Good enough though
         created_playlists = []
         for diff_item in commit.diff(commit.parents[0] if commit.parents else None):
-            if (diff_item.b_path is not None and
-                diff_item.b_path.startswith("playlists/") and
-                diff_item.new_file and  # This is crucial - file must be new
-                not diff_item.renamed_file and  # Not a rename
+            if (
+                diff_item.b_path is not None
+                and diff_item.b_path.startswith("playlists/")
+                and diff_item.new_file  # This is crucial - file must be new
+                and not diff_item.renamed_file  # Not a rename
+                and
                 # Don't count a playlist as created if it's in the deleted_playlists list
-                not any(playlist.name in diff_item.b_path for playlist in deleted_playlists)):
+                not any(
+                    playlist.name in diff_item.b_path for playlist in deleted_playlists
+                )
+            ):
                 # Extract playlist name without the ID
                 playlist_name = diff_item.b_path.split("/")[-1].rsplit(" (", 1)[0]
                 created_playlists.append(playlist_name)
@@ -406,14 +424,21 @@ def maybe_git_push(
     if should_push_without_prompting_user:
         logger.info("Pushing changes to remote (due to --push flag)...")
     else:
-        if Prompt.ask("\nPush changes to remote repository?", choices=["y", "N"], default="N") != "y":
+        if (
+            Prompt.ask(
+                "\nPush changes to remote repository?", choices=["y", "N"], default="N"
+            )
+            != "y"
+        ):
             cleanup_repo()
             exit(1)
 
     try:
         logger.info("Pushing changes to remote...")
         if repo.head.is_detached:
-            logger.error("Cannot push: HEAD is in a detached state. Please checkout a branch first.")
+            logger.error(
+                "Cannot push: HEAD is in a detached state. Please checkout a branch first."
+            )
             cleanup_repo()
             exit(1)
 

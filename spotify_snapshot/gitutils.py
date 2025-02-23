@@ -471,12 +471,13 @@ def maybe_git_push(
 
         # Use SSH key 
         logger.info(f"Using SSH key at: {config.ssh_key_path}")
-        if not config.ssh_key_path.exists():
-            logger.error(f"SSH key does not exist where the config file says it should: {config.ssh_key_path}")
+        ssh_key_path = Path(config.ssh_key_path).expanduser()
+        if not ssh_key_path.exists():
+            logger.error(f"SSH key does not exist where the config file says it should: {ssh_key_path}")
             cleanup_repo()
             exit(1)
 
-        ssh_cmd = f"ssh -i {config.ssh_key_path}"
+        ssh_cmd = f"ssh -i {ssh_key_path}"
         with repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
             repo.remotes.origin.push()
 

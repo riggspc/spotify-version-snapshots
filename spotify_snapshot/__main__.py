@@ -189,8 +189,12 @@ def main(
         spotify.write_playlists_to_git_repo(sp_client)
 
     username = spotify.get_username(sp_client)
-    gitutils.commit_files(is_test_mode, username)
-    gitutils.maybe_git_push(is_test_mode, should_push_without_prompting_user=push)
+    do_changes_to_push_exist = gitutils.commit_files(is_test_mode, username)
+    if do_changes_to_push_exist:
+        gitutils.maybe_git_push(is_test_mode, should_push_without_prompting_user=push)
+    else:
+        logger.info("<yellow>Exiting without pushing changes, since there are no changes to push</yellow>")
+
     gitutils.cleanup_repo()
     exit(0)
 

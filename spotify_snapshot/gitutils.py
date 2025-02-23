@@ -123,7 +123,12 @@ def cleanup_repo() -> None:
         _repo_instance.close()
 
 
-def commit_files(is_test_mode: bool, username: str) -> None:
+def commit_files(is_test_mode: bool, username: str) -> bool:
+    """Commit the files in the repository.
+
+    Returns:
+        True if the commit was successful, False if there were no changes to commit
+    """
     logger = get_colorized_logger()
     repo = get_repo(is_test_mode)
 
@@ -137,12 +142,14 @@ def commit_files(is_test_mode: bool, username: str) -> None:
     if not is_first_commit:
         deleted_playlists = remove_deleted_playlists(repo)
 
-    # Check if there are any changes to commit
-    if not repo.is_dirty(untracked_files=True):
-        logger.info("<yellow>No changes to commit</yellow>")
-        return
-
+    # Add all changes to the index first
     repo.git.add(A=True)
+    
+    # Check if there are any changes to commit after staging
+    if not repo.index.diff("HEAD") and not repo.untracked_files:
+        logger.info("<yellow>No changes to commit</yellow>")
+        return False
+
     # A temp commit is needed to get stats etc - the library doesn't support it
     # otherwise
     commit = repo.index.commit("temp")
@@ -154,7 +161,7 @@ def commit_files(is_test_mode: bool, username: str) -> None:
     )
     repo.git.commit("--amend", "-m", commit_message)
     logger.info("<green>Changes committed. All done!</green>")
-
+    return True
 
 def get_deleted_playlists(
     repo: git.Repo,
@@ -406,6 +413,7 @@ def maybe_git_push(
     """Push changes to the remote repository."""
     logger = get_colorized_logger()
     repo = get_repo(is_test_mode)
+    config = SpotifySnapshotConfig.load()
 
     # Verify remote exists and has URL
     try:
@@ -442,17 +450,56 @@ def maybe_git_push(
             cleanup_repo()
             exit(1)
 
-        repo.remotes.origin.push()
-        # Convert SSH URL to HTTPS URL if needed
-        url = repo.remotes.origin.url
-        if url.startswith("git@"):
-            # Convert git@github.com:user/repo.git to https://github.com/user/repo
-            url = url.replace(":", "/").replace("git@", "https://").rstrip(".git")
-        success_msg = f"Successfully pushed changes to {url}!"
+        if not repo.remotes.origin.url.startswith("git@"):
+            logger.error(
+                "Only SSH URLs are supported for pushing to remote repositories."
+            )
+            cleanup_repo()
+            exit(1)
+        
+        # If there are unpulled changes, pull them first
+        if repo.remotes.origin.fetch():
+            logger.info("Pulling changes from remote...")
+            try:
+                repo.remotes.origin.pull()
+            except git.GitCommandError as e:
+                logger.error(f"Failed to pull changes: {e!s}")
+                logger.error(f"Git command failed with exit code {e.status}")
+                logger.error(f"Git stderr: {e.stderr}")
+                cleanup_repo()
+                exit(1)
+
+        # Use SSH key 
+        logger.info(f"Using SSH key at: {config.ssh_key_path}")
+        if not config.ssh_key_path.exists():
+            logger.error(f"SSH key does not exist where the config file says it should: {config.ssh_key_path}")
+            cleanup_repo()
+            exit(1)
+
+        ssh_cmd = f"ssh -i {config.ssh_key_path}"
+        with repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+            repo.remotes.origin.push()
+
+        # Convert SSH URL to HTTPS URL for display
+        ssh_url = repo.remotes.origin.url
+        # Convert git@github.com:user/repo.git to https://github.com/user/repo
+        https_url = ssh_url.replace(":", "/").replace("git@", "https://").rstrip(".git")
+        success_msg = f"Successfully pushed changes to {ssh_url}"
+        success_msg = f"See your changes at {https_url}"
         logger.info(success_msg)
     except git.GitCommandError as e:
         error_msg = f"Failed to push changes: {e!s}"
         logger.error(error_msg)
         logger.error(f"Git command failed with exit code {e.status}")
         logger.error(f"Git stderr: {e.stderr}")
+        # TODO: This can be a misleading error message if the repo does not exist maybe?
+        if (
+            "Permission denied (publickey)" in e.stderr
+            or "Could not read from remote repository" in e.stderr
+        ):
+            logger.error(
+                "SSH key authentication failed. Please check your SSH key configuration."
+            )
+            if config.ssh_key_path:
+                logger.error(f"Using SSH key at: {config.ssh_key_path}")
         logger.error(f"[red]{error_msg}[/red]")

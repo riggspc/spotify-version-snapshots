@@ -33,8 +33,6 @@ API_REQUEST_SLEEP_TIME_SEC = 0.5
 API_REQUEST_LIMIT = 50
 
 
-
-
 @dataclass
 class SpotifyCredentials:
     """Container for Spotify API credentials."""
@@ -52,8 +50,12 @@ class SpotifyCredentialsManager:
     def get_credentials(cls) -> SpotifyCredentials:
         """Get Spotify API credentials from keyring or environment."""
         # Try to get from keyring
-        client_id = keyring.get_password(SpotifyCredentialsManager.SERVICE_NAME, "client_id")
-        client_secret = keyring.get_password(SpotifyCredentialsManager.SERVICE_NAME, "client_secret")
+        client_id = keyring.get_password(
+            SpotifyCredentialsManager.SERVICE_NAME, "client_id"
+        )
+        client_secret = keyring.get_password(
+            SpotifyCredentialsManager.SERVICE_NAME, "client_secret"
+        )
 
         # If either credential is missing, prompt user
         if not client_id or not client_secret:
@@ -84,8 +86,12 @@ class SpotifyCredentialsManager:
         """Store Spotify API credentials in system keyring."""
         logger = get_colorized_logger()
         logger.info("Storing credentials in keyring...")
-        keyring.set_password(SpotifyCredentialsManager.SERVICE_NAME, "client_id", client_id)
-        keyring.set_password(SpotifyCredentialsManager.SERVICE_NAME, "client_secret", client_secret)
+        keyring.set_password(
+            SpotifyCredentialsManager.SERVICE_NAME, "client_id", client_id
+        )
+        keyring.set_password(
+            SpotifyCredentialsManager.SERVICE_NAME, "client_secret", client_secret
+        )
         logger.info("<green>Credentials stored successfully!</green>")
 
     @classmethod
@@ -94,7 +100,9 @@ class SpotifyCredentialsManager:
         logger = get_colorized_logger()
         try:
             keyring.delete_password(SpotifyCredentialsManager.SERVICE_NAME, "client_id")
-            keyring.delete_password(SpotifyCredentialsManager.SERVICE_NAME, "client_secret")
+            keyring.delete_password(
+                SpotifyCredentialsManager.SERVICE_NAME, "client_secret"
+            )
             logger.info("<green>Credentials removed successfully!</green>")
         except keyring.errors.PasswordDeleteError:
             logger.info("<yellow>No credentials found to remove.</yellow>")

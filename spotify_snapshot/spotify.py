@@ -96,14 +96,20 @@ class SpotifyCredentialsManager:
 
     @classmethod
     def remove_stored_credentials(cls) -> None:
-        """Remove stored credentials from system keyring."""
+        """Remove stored credentials from system keyring and delete auth cache."""
         logger = get_colorized_logger()
         try:
             keyring.delete_password(SpotifyCredentialsManager.SERVICE_NAME, "client_id")
             keyring.delete_password(
                 SpotifyCredentialsManager.SERVICE_NAME, "client_secret"
             )
-            logger.info("<green>Credentials removed successfully!</green>")
+            
+            # Delete the auth cache file if it exists
+            cache_path = get_spotify_auth_cache_path()
+            if cache_path.exists():
+                cache_path.unlink()
+            
+            logger.info("<green>Credentials and auth cache removed successfully!</green>")
         except keyring.errors.PasswordDeleteError:
             logger.info("<yellow>No credentials found to remove.</yellow>")
 
@@ -275,6 +281,12 @@ def get_username(sp_client: spotipy.Spotify) -> str:
     return sp_client.current_user()["display_name"]
 
 
+def get_spotify_auth_cache_path() -> Path:
+    """Get the path to the Spotify authentication cache file."""
+    base_cache_path = Path(getenv("XDG_CACHE_HOME", Path.home() / ".cache"))
+    return base_cache_path / "spotify-backup" / "auth_cache"
+
+
 def create_spotify_client() -> spotipy.Spotify:
     """Create and return an authenticated Spotify client.
 
@@ -286,18 +298,19 @@ def create_spotify_client() -> spotipy.Spotify:
 
     creds = SpotifyCredentialsManager.get_credentials()
 
-    base_cache_path = Path(getenv("XDG_CACHE_HOME", Path.home() / ".cache"))
-    cache_path = base_cache_path / "spotify-backup" / ".auth_cache"
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=str(cache_path))
+    # cache_path = get_spotify_auth_cache_path()
+    # if not cache_path.exists():
+    #     logger.info(f"<green>Creating auth cache file at {cache_path}</green>")
+    #     cache_path.parent.mkdir(parents=True, exist_ok=True)
+    # cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=str(cache_path))
 
     try:
         client = spotipy.Spotify(
             auth_manager=spotipy.oauth2.SpotifyOAuth(
                 client_id=creds.client_id,
                 client_secret=creds.client_secret,
-                redirect_uri="http://localhost:8000/callback",
-                cache_handler=cache_handler,
+                redirect_uri="http://127.0.0.1:8000/callback",
+                # cache_handler=cache_handler,
                 scope=[
                     "user-library-read",
                     "playlist-read-private",
@@ -310,7 +323,7 @@ def create_spotify_client() -> spotipy.Spotify:
 
     # Spotipy does not set the permissions on the cache file correctly, so we do it manually
     # I filed https://github.com/spotipy-dev/spotipy/security/advisories/GHSA-pwhh-q4h6-w599
-    chmod(cache_path, 0o600)
+    # chmod(cache_path, 0o600)
     logger.info("<green>Successfully created Spotify client!</green>")
     return client
 

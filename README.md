@@ -6,7 +6,7 @@ Easily snapshot (and schedule repeated snapshots of) the state of your `Spotify`
 
 The main motivation for building this tooling is to have a backup of your music library in case Spotify ever disappears or has a mass dataloss event. You can also track your Spotify world as it evolves over time (and use `git` tooling to analyze it), but that's secondary.
 
-> [!WARNING]  
+> [!WARNING]
 > This tool is uses the [Spotify API](https://developer.spotify.com/documentation/web-api/reference/get-users-saved-albums) and [`spotipy`](https://github.com/spotipy-dev/spotipy/) inherits their limitations. For example, it can not access "Spotify Wrapped" playlists, or playlists generated for you by Spotify.
 
 ## Quickstart
@@ -316,6 +316,36 @@ This will produce a `spotify-snapshots` repo in your `$XDG_DATA_HOME/spotify-sna
 ```
 
 When playlists are deleted from Spotify, they are removed from the `playlists` directory, and the `playlists.tsv` file is updated to reflect the deletion.
+
+The `playlists.tsv` file looks like this:
+
+```tsv
+PLAYLIST NAME   PLAYLIST DESCRIPTION    LENGTH  OWNER   COLLABORATIVE   PLAYLIST ID
+System Collapse         17      jshobrook       False   0EdbeHVCvj4zIRz4vEttsT
+Alive           17      aaronlichtman   False   0Fel7tbPSXjKArGYLkdX28
+You.            30      aaronlichtman   False   0JMhuCK3SatswVi8nq5eUi
+Favorites               117     aaronlichtman   False   0a02LXqBmOewE6yGY7bMj6
+Vibrant         24      aaronlichtman   False   0jdelyL70gI7ZEKfIlPhXz
+Formal          11      aaronlichtman   False   0y8T4cKUKG729IvsPYmGIL
+Jai Paul Vibes          9       aaronlichtman   False   1hZUuOTffqwETitYF18opl
+Shower          10      aaronlichtman   False   1x7379j4D4NEHHTfzTNKKS
+
+```
+
+An example of a playlist detail file:
+
+```tsv
+TRACK NAME      TRACK ARTIST(S) ALBUM   DATE ADDED      ADDED BY        TRACK ID
+Love$ick (feat. A$AP Rocky)     Mura Masa, A$AP Rocky   Mura Masa       2018-03-17T01:53:21Z    aaronlichtman   7Kq16WtEJzdRSNQgdXsn7Y
+Revolver - I the AI Remix       Vian Izak, I The Ai, Juniper Vale       Revolver Remixes        2018-06-10T16:40:58Z    aaronlichtman   0mr2Qp1cORHb2RbtkHhxxD
+Looking For Nothing     Unknown Brain, Avril Amber      Looking For Nothing     2018-06-10T16:41:04Z    aaronlichtman   3jGDP4QDeShvZ12DgBHwVc
+So Long (feat. Madi)    Slushii, MADI   So Long (feat. Madi)    2018-07-19T22:38:33Z    aaronlichtman   7ppz0b5ecGXM8xHg5yGDhK
+Move Me Mura Masa, Octavian     Move Me 2018-08-04T00:34:48Z    aaronlichtman   44Yrt6xIUdcooTbDh57hrF
+Juparo  Broke For Free  Petal   2018-08-04T00:35:44Z    aaronlichtman   7vhSk7bLrzC1cpgRwa5uVt
+Out of My League - Peking Duk Remix     Fitz and The Tantrums, Peking Duk       Out of My League (Remixes)      2018-08-07T16:21:10Z    aaronlichtman   5eUmcu26ws4Du8sNIiocEG
+Jump Off The Roof       Vince Staples, Snoh Aalegra     Summertime '06  2018-11-21T00:52:00Z    aaronlichtman   1deetO7jeQqMH2C7kSH32a
+Like It Is      Vince Staples   Summertime '06  2018-11-21T00:52:11Z    aaronlichtman   6yHZ09mUcQRZtWBYW73OoQ
+```
 
 ## CLI Options
 

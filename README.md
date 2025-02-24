@@ -1,6 +1,6 @@
 # `spotify-snapshot`
 
-Easily snapshot (and schedule repeated snapshots of) the state of your `Spotify` library / playlists / etc, and store it in version control.
+Easily snapshot the state of your `Spotify` library / playlists / etc, and store it in version control.
 
 ## Why?
 

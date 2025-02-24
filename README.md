@@ -406,7 +406,7 @@ backup_interval_hours = 8
 ### Automated Backups with `cron`
 
 > [!WARNING]
-> Experimental, known broken
+> WIP: known broken
 
 You can set up automatic backups that run every `x` hours using the built-in cronjob integration:
 

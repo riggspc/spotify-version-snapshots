@@ -147,7 +147,9 @@ def main(
 
             # Handle edit-config request if specified
             if edit_config:
-                editor = os.environ.get("EDITOR", "vim")  # Default to vim if $EDITOR not set
+                editor = os.environ.get(
+                    "EDITOR", "vim"
+                )  # Default to vim if $EDITOR not set
                 logger.info(f"Opening config file in {editor}")
                 subprocess.call([editor, config.get_config_path()])
                 return
@@ -166,6 +168,11 @@ def main(
                 logger.info("<yellow>*** RUNNING IN PROD MODE ***</yellow>")
 
             sp_client = spotify.create_spotify_client()
+
+            logger.info(
+                f"<green>Logged in as {spotify.get_username(sp_client)}</green>"
+            )
+
             gitutils.setup_git_repo_if_needed(is_test_mode)
 
             # Set remote URL if configured
@@ -176,7 +183,9 @@ def main(
             SpotifySnapshotOutputManager.initialize(snapshots_repo_name)
 
             # If no specific backup option is selected, default to backing up everything
-            if not any([backup_all, backup_liked_songs, backup_saved_albums, backup_playlists]):
+            if not any(
+                [backup_all, backup_liked_songs, backup_saved_albums, backup_playlists]
+            ):
                 backup_all = True
                 logger.info(
                     "<yellow>No specific backup option selected. Backing up all data...</yellow>"
@@ -200,16 +209,20 @@ def main(
             username = spotify.get_username(sp_client)
             do_changes_to_push_exist = gitutils.commit_files(is_test_mode, username)
             if do_changes_to_push_exist:
-                gitutils.maybe_git_push(is_test_mode, should_push_without_prompting_user=push)
+                gitutils.maybe_git_push(
+                    is_test_mode, should_push_without_prompting_user=push
+                )
             else:
-                logger.info("<yellow>Exiting without pushing changes, since there are no changes to push</yellow>")
+                logger.info(
+                    "<yellow>Exiting without pushing changes, since there are no changes to push</yellow>"
+                )
 
             gitutils.cleanup_repo()
             exit(0)
 
     except Exception as e:
         logger.error(f"<red>An error occurred: {e.with_traceback}</red>")
-        exit(1)
+        raise e
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ from dataclasses import dataclass
 import keyring
 from rich.prompt import Prompt
 
+logger = get_colorized_logger()
 
 #####
 # Spotify Operations
@@ -103,13 +104,15 @@ class SpotifyCredentialsManager:
             keyring.delete_password(
                 SpotifyCredentialsManager.SERVICE_NAME, "client_secret"
             )
-            
+
             # Delete the auth cache file if it exists
             cache_path = get_spotify_auth_cache_path()
             if cache_path.exists():
                 cache_path.unlink()
-            
-            logger.info("<green>Credentials and auth cache removed successfully!</green>")
+
+            logger.info(
+                "<green>Credentials and auth cache removed successfully!</green>"
+            )
         except keyring.errors.PasswordDeleteError:
             logger.info("<yellow>No credentials found to remove.</yellow>")
 
@@ -254,9 +257,7 @@ def get_saved_albums(sp_client: spotipy.Spotify) -> dict:
 def get_playlists(sp_client: spotipy.Spotify) -> dict[str, SpotifyPlaylist]:
     logger = get_colorized_logger()
     saved_playlists = {}
-    logger.info(
-        f"<green>Fetching playlists</green>..."
-    )
+    logger.info(f"<green>Fetching playlists</green>...")
     results: SpotifyPlaylistsResponse = sp_client.current_user_playlists(
         API_REQUEST_LIMIT
     )
@@ -288,7 +289,13 @@ def get_username(sp_client: spotipy.Spotify) -> str:
 def get_spotify_auth_cache_path() -> Path:
     """Get the path to the Spotify authentication cache file."""
     base_cache_path = Path(getenv("XDG_CACHE_HOME", Path.home() / ".cache"))
-    return base_cache_path / "spotify-backup" / "auth_cache"
+    cache_path = base_cache_path / "spotify-backup" / "auth_cache"
+    if not cache_path.exists():
+        logger.info(f"<green>Creating auth cache file at {cache_path}</green>")
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        logger.info(f"<green>Auth cache file already exists at {cache_path}</green>")
+    return cache_path
 
 
 def create_spotify_client() -> spotipy.Spotify:
@@ -297,15 +304,12 @@ def create_spotify_client() -> spotipy.Spotify:
     Raises:
         InvalidSpotifyCredentialsError: If the provided credentials are invalid
     """
-    logger = get_colorized_logger()
     logger.info("<blue>Creating Spotify client...</blue>")
 
     creds = SpotifyCredentialsManager.get_credentials()
 
     cache_path = get_spotify_auth_cache_path()
-    if not cache_path.exists():
-        logger.info(f"<green>Creating auth cache file at {cache_path}</green>")
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
+
     cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=str(cache_path))
 
     try:
@@ -321,7 +325,7 @@ def create_spotify_client() -> spotipy.Spotify:
                     "playlist-read-collaborative",
                 ],
             ),
-            backoff_factor=0.8
+            backoff_factor=0.8,
         )
     except Exception as e:
         logger.error(f"<red>Error creating Spotify client: {e}</red>")

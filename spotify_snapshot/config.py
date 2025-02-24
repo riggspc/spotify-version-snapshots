@@ -61,6 +61,13 @@ class SpotifySnapshotConfig:
                     else ""
                 )
                 ssh_key_name = config_data.get("ssh_key_name", "")
+                git_remote_url = config_data.get("git_remote_url", "")
+
+                if not git_remote_url.startswith("git@"):
+                    logger.error(
+                        "<red>git_remote_url must be an SSH URL (starts with git@)</red>"
+                    )
+                    sys.exit(1)
 
                 # if backup dir isn't set for the current platform, error out
                 if sys.platform == "darwin" and macos_backup_dir == "":
@@ -73,9 +80,11 @@ class SpotifySnapshotConfig:
                         "<red>Backup directory not set in config file for Linux. Please set the linux_backup_dir in the config file.</red>"
                     )
                     sys.exit(1)
+                
+
 
                 return cls(
-                    git_remote_url=config_data.get("git_remote_url"),
+                    git_remote_url=git_remote_url,
                     macos_backup_dir=macos_backup_dir,
                     linux_backup_dir=linux_backup_dir,
                     backup_interval_hours=config_data.get("backup_interval_hours", 8),
@@ -96,12 +105,12 @@ class SpotifySnapshotConfig:
         # Get git remote URL and ensure it's SSH
         while True:
             git_remote_url = Prompt.ask(
-                "Enter your Git remote URL (optional, press Enter to skip)", default=""
+                "(optional) Enter your Git remote URL. Must be an SSH URL (starts with git@)", default=""
             )
             if not git_remote_url:
                 break
-            if not git_remote_url.startswith(("git@", "ssh://")):
-                logger.error("Please provide an SSH URL (starts with git@ or ssh://)")
+            if not git_remote_url.startswith("git@"):
+                logger.error("Please provide an SSH URL (starts with git@)")
                 continue
             git_remote_url = git_remote_url.strip()
             break

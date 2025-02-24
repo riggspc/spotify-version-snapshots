@@ -78,9 +78,7 @@ def install_crontab_entry(interval_hours: int = 8) -> None:
     job.minute.every(4)
     # Save the config
     cron.write()
-    logger.info(
-        f"<green>✓</green> Installed cron job to run every 4 minutes"
-    )
+    logger.info(f"<green>✓</green> Installed cron job to run every 4 minutes")
 
 
 def uninstall_crontab_entry() -> None:

@@ -4,6 +4,9 @@ from typing import Optional
 from spotify_snapshot.logging import get_colorized_logger
 
 
+logger = get_colorized_logger()
+
+
 class SpotifySnapshotOutputManager:
     _instance: Optional["SpotifySnapshotOutputManager"] = None
 
@@ -12,6 +15,9 @@ class SpotifySnapshotOutputManager:
             raise RuntimeError(
                 "Use SpotifySnapshotOutputManager.initialize() or get_instance()"
             )
+        logger.info(
+            f"<blue>Initializing SpotifySnapshotOutputManager with base dir</blue> <green><bold>{base_dir}</bold></green>"
+        )
         self.base_dir = Path(base_dir)
         self.ensure_output_dirs()
 
@@ -67,7 +73,6 @@ class SpotifySnapshotOutputManager:
 
     def ensure_output_dirs(self) -> None:
         """Ensure all output directories exist"""
-        logger = get_colorized_logger()
         if not self.base_dir.exists():
             logger.info(
                 f"<blue>Creating directory</blue> <green><bold>{self.base_dir}</bold></green>"

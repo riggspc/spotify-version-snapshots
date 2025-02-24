@@ -4,11 +4,10 @@ Easily snapshot (and schedule repeated snapshots of) the state of your `Spotify`
 
 ## Why?
 
-- **Most important:** If Spotify ever disappears or has a mass dataloss event, you'll have a current backup of your music library.
-- **Less important:** You can track your Spotify world as it evolves over time (and use `git` tooling to analyze it).
+The main motivation for building this tooling is to have a backup of your music library in case Spotify ever disappears or has a mass dataloss event. You can also track your Spotify world as it evolves over time (and use `git` tooling to analyze it), but that's secondary.
 
 > [!WARNING]  
-> This tool is limited by the [Spotify API](https://developer.spotify.com/documentation/web-api/reference/get-users-saved-albums) and [`spotipy`](https://github.com/spotipy-dev/spotipy/). For example, it can not access "Spotify Wrapped" playlists, or playlists generated for you by Spotify.
+> This tool is uses the [Spotify API](https://developer.spotify.com/documentation/web-api/reference/get-users-saved-albums) and [`spotipy`](https://github.com/spotipy-dev/spotipy/) inherits their limitations. For example, it can not access "Spotify Wrapped" playlists, or playlists generated for you by Spotify.
 
 ## Quickstart
 
@@ -16,7 +15,7 @@ Easily snapshot (and schedule repeated snapshots of) the state of your `Spotify`
 $ git clone git@github.com:alichtman/spotify-snapshot.git
 $ cd spotify-snapshot
 $ pipx install .
-$ spotify_snapshot --install
+$ spotify_snapshot
 ```
 
 ## Output Structure
@@ -338,7 +337,7 @@ When playlists are deleted from Spotify, they are removed from the `playlists` d
 ## CLI Options
 
 ```bash
-$ spotify_snapshot  --help
+$ spotify_snapshot -h
 Usage: spotify_snapshot [OPTIONS]
 
   Fetch and snapshot Spotify library data.
@@ -357,9 +356,12 @@ Options:
   -v, --version          Print the version
   --edit-config          Open the config file in your default editor ($EDITOR)
   --push                 Push changes to the remote repository.
+  --set-creds            Set Spotify API credentials in system keyring
+  --clear-creds          Remove Spotify API credentials from system keyring
   -help, -h, --help      Show this message and exit.
 
-  https://github.com/alichtman/spotify-snapshot
+  https://github.com/riggspc/spotify-snapshot
+
 ```
 
 ## Configuration
@@ -371,32 +373,40 @@ In order to use this tool, you'll need to set up a Spotify developer app and cop
 ![Spotify Developer Dashboard](img/spotify-app-setup.png)
 
 1. Create a `Spotify` app at https://developer.spotify.com/dashboard/applications
-2. Set the callback URL to `http://localhost:8000/callback`
+2. Set the callback URL to `http://127.0.0.1:8000/callback`
 3. Select the "Web API" checkbox
 4. Copy the client ID and client secret
-5. Set them as environment variables in your shell profile:
-
-```bash
-export SPOTIFY_BACKUP_CLIENT_ID=<your-client-id>
-export SPOTIFY_BACKUP_CLIENT_SECRET=<your-client-secret>
-```
+5. Run `spotify_snapshot` and follow the prompts to save them to your system keyring. I used the system keyring because environment variables aren't passed into the cronjob execution context by default. We can't specify the secret in the config file because we want to be able to back up the dotfiles publicly (with something like [`shallow-backup`](https://github.com/alichtman/shallow-backup)) without exposing secrets.
 
 ### Configuration File
 
 The tool uses a TOML configuration file located at `$XDG_CONFIG_HOME/spotify-snapshot.toml` (typically `~/.config/spotify-snapshot.toml`). On first run, you'll be guided through a flow to create this file.
 
+Note that most paths do not accept environment variables (because they aren't passed into the cronjob execution context by default), so you'll need to set them manually.
+
 ```toml
 # Git remote URL for pushing snapshots (optional)
 git_remote_url = "git@github.com:username/spotify-snapshots.git"
 
-# Local directory for storing snapshots -- accepts environment variables
-backup_dir = "$XDG_DATA_HOME/spotify-snapshots"
+# macOS backup directory path
+macos_backup_dir = "/Users/<username>/.local/share/spotify-snapshots"
+
+# Linux backup directory path
+linux_backup_dir = "/home/<username>/.local/share/spotify-snapshots"
+
+# SSH key to use for Git operations (optional, relative to ~/.ssh/). Currently, the key name needs to be identical on all machines you run this on
+ssh_key_name = "id_ed25519"
 
 # Interval in hours between backups when running as a cron job
 backup_interval_hours = 8
+
+
 ```
 
-### Automated Backups
+### Automated Backups with `cron`
+
+> [!WARNING]
+> WIP: known broken
 
 You can set up automatic backups that run every `x` hours using the built-in cronjob integration:
 

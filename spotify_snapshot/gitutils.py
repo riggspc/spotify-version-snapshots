@@ -13,11 +13,14 @@ from spotify_snapshot.spotify_datatypes import DeletedPlaylist
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
+from .install import RUNNING_INSIDE_CRONTAB_ENV_VAR
 
 from .config import SpotifySnapshotConfig
 from .logging import get_colorized_logger
 
 _repo_instance = None
+
+logger = get_colorized_logger()
 
 
 def get_repo_filepath(is_test_mode: bool) -> Path:
@@ -123,8 +126,14 @@ def cleanup_repo() -> None:
         _repo_instance.close()
 
 
-def commit_files(is_test_mode: bool, username: str) -> None:
+def commit_files(is_test_mode: bool, username: str) -> bool:
+    """Commit the files in the repository.
+
+    Returns:
+        True if the commit was successful, False if there were no changes to commit
+    """
     logger = get_colorized_logger()
+    logger.info("Committing files...")
     repo = get_repo(is_test_mode)
 
     is_first_commit = False
@@ -137,12 +146,27 @@ def commit_files(is_test_mode: bool, username: str) -> None:
     if not is_first_commit:
         deleted_playlists = remove_deleted_playlists(repo)
 
-    # Check if there are any changes to commit
-    if not repo.is_dirty(untracked_files=True):
-        logger.info("<yellow>No changes to commit</yellow>")
-        return
-
+    # Add all changes to the index first
     repo.git.add(A=True)
+
+    # Add debug logging
+    logger.debug(f"Untracked files: {repo.untracked_files}")
+    if not is_first_commit:
+        logger.debug(f"Index diff with HEAD: {list(repo.index.diff(repo.head.commit))}")
+    logger.debug(f"Index diff with None: {list(repo.index.diff(None))}")
+
+    # Check if there are any changes to commit
+    if is_first_commit:
+        has_changes = bool(repo.untracked_files) or bool(repo.index.diff(None))
+    else:
+        has_changes = bool(repo.index.diff(repo.head.commit)) or bool(
+            repo.untracked_files
+        )
+
+    if not has_changes:
+        logger.info("<yellow>No changes to commit</yellow>")
+        return False
+
     # A temp commit is needed to get stats etc - the library doesn't support it
     # otherwise
     commit = repo.index.commit("temp")
@@ -152,8 +176,24 @@ def commit_files(is_test_mode: bool, username: str) -> None:
     logger.info(
         f"<green>Commit info:</green>\n\n<yellow><bold>{commit_message}</bold></yellow>"
     )
-    repo.git.commit("--amend", "-m", commit_message)
-    logger.info("<green>Changes committed. All done!</green>")
+    try:
+        # If executing inside of crontab, don't sign commits (since we can't access GPG keys)
+        if os.getenv(RUNNING_INSIDE_CRONTAB_ENV_VAR, "0") == "1":
+            logger.info("Running inside of crontab. Not signing commits.")
+            repo.git.commit("--amend", "-m", commit_message, "--no-gpg-sign")
+        else:
+            logger.info(
+                "Running outside of crontab. Signing commits (if that is configured in your gitconfig)!"
+            )
+            repo.git.commit("--amend", "-m", commit_message)
+
+        logger.info("<green>Changes committed. All done!</green>")
+        return True
+    except git.GitCommandError as e:
+        logger.error(f"Failed to commit changes: {e!s}")
+        logger.error(f"Git command failed with exit code {e.status}")
+        logger.error(f"Git stderr: {e.stderr}")
+        exit(1)
 
 
 def get_deleted_playlists(
@@ -404,8 +444,9 @@ def maybe_git_push(
     is_test_mode: bool, should_push_without_prompting_user: bool = False
 ) -> None:
     """Push changes to the remote repository."""
-    logger = get_colorized_logger()
+    logger.info("Pushing changes to remote...")
     repo = get_repo(is_test_mode)
+    config = SpotifySnapshotConfig.load()
 
     # Verify remote exists and has URL
     try:
@@ -433,26 +474,61 @@ def maybe_git_push(
             cleanup_repo()
             exit(1)
 
-    try:
-        logger.info("Pushing changes to remote...")
-        if repo.head.is_detached:
-            logger.error(
-                "Cannot push: HEAD is in a detached state. Please checkout a branch first."
-            )
-            cleanup_repo()
-            exit(1)
+    if not repo.remotes.origin.url.startswith("git@"):
+        logger.error("Only SSH URLs are supported for pushing to remote repositories.")
+        cleanup_repo()
+        exit(1)
 
-        repo.remotes.origin.push()
-        # Convert SSH URL to HTTPS URL if needed
-        url = repo.remotes.origin.url
-        if url.startswith("git@"):
-            # Convert git@github.com:user/repo.git to https://github.com/user/repo
-            url = url.replace(":", "/").replace("git@", "https://").rstrip(".git")
-        success_msg = f"Successfully pushed changes to {url}!"
+    if repo.head and repo.head.is_detached:
+        logger.error(
+            "Cannot push: HEAD is in a detached state. Please checkout a branch first."
+        )
+        cleanup_repo()
+        exit(1)
+
+    # Use SSH key
+    ssh_key_path = Path(config.ssh_key_path).expanduser()
+    logger.info(f"Using SSH key at: {ssh_key_path}")
+    if not ssh_key_path.exists():
+        logger.error(
+            f"SSH key does not exist where the config file says it should: {ssh_key_path}"
+        )
+        cleanup_repo()
+        exit(1)
+
+    ssh_cmd = f"ssh -i {ssh_key_path}"
+
+    try:
+        # If there are unpulled changes, pull them first
+        logger.info("Pulling changes from remote...")
+        with repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+            try:
+                repo.remotes.origin.pull()
+            except git.GitCommandError as e:
+                logger.error(f"Failed to pull changes: {e!s}")
+                logger.error(f"Git command failed with exit code {e.status}")
+                logger.error(f"Git stderr: {e.stderr}")
+                cleanup_repo()
+                exit(1)
+
+        with repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+            try:
+                repo.remotes.origin.push()
+            except git.GitCommandError as e:
+                logger.error(f"Failed to push changes: {e!s}")
+                logger.error(f"Git command failed with exit code {e.status}")
+                logger.error(f"Git stderr: {e.stderr}")
+                cleanup_repo()
+                exit(1)
+
+        # Convert SSH URL to HTTPS URL for display
+        ssh_url = repo.remotes.origin.url
+        # Convert git@github.com:user/repo.git to https://github.com/user/repo
+        https_url = ssh_url.replace(":", "/").replace("git@", "https://").rstrip(".git")
+        success_msg = f"Successfully pushed changes to {ssh_url}"
+        success_msg = f"See your changes at {https_url}"
         logger.info(success_msg)
-    except git.GitCommandError as e:
-        error_msg = f"Failed to push changes: {e!s}"
-        logger.error(error_msg)
-        logger.error(f"Git command failed with exit code {e.status}")
-        logger.error(f"Git stderr: {e.stderr}")
-        logger.error(f"[red]{error_msg}[/red]")
+
+    except Exception as e:
+        logger.error(f"<red>An error occurred: {e}</red>")
+        raise e

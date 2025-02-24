@@ -430,3 +430,8 @@ To manually check when the next backup will run:
 ```bash
 $ crontab -l | grep spotify-snapshot
 ```
+
+## Contributors
+
+- [Patrick Riggs](https://github.com/riggspc)
+- [Aaron Lichtman](https://github.com/alichtman)

@@ -13,6 +13,7 @@ from spotify_snapshot.spotify_datatypes import DeletedPlaylist
 from spotify_snapshot.spotify_snapshot_output_manager import (
     SpotifySnapshotOutputManager,
 )
+from .install import RUNNING_INSIDE_CRONTAB_ENV_VAR
 
 from .config import SpotifySnapshotConfig
 from .logging import get_colorized_logger
@@ -130,6 +131,7 @@ def commit_files(is_test_mode: bool, username: str) -> bool:
         True if the commit was successful, False if there were no changes to commit
     """
     logger = get_colorized_logger()
+    logger.info("Committing files...")
     repo = get_repo(is_test_mode)
 
     is_first_commit = False
@@ -145,8 +147,19 @@ def commit_files(is_test_mode: bool, username: str) -> bool:
     # Add all changes to the index first
     repo.git.add(A=True)
     
-    # Check if there are any changes to commit after staging
-    if not repo.index.diff("HEAD") and not repo.untracked_files:
+    # Add debug logging
+    logger.debug(f"Untracked files: {repo.untracked_files}")
+    if not is_first_commit:
+        logger.debug(f"Index diff with HEAD: {list(repo.index.diff(repo.head.commit))}")
+    logger.debug(f"Index diff with None: {list(repo.index.diff(None))}")
+
+    # Check if there are any changes to commit
+    if is_first_commit:
+        has_changes = bool(repo.untracked_files) or bool(repo.index.diff(None))
+    else:
+        has_changes = bool(repo.index.diff(repo.head.commit)) or bool(repo.untracked_files)
+
+    if not has_changes:
         logger.info("<yellow>No changes to commit</yellow>")
         return False
 
@@ -159,9 +172,22 @@ def commit_files(is_test_mode: bool, username: str) -> bool:
     logger.info(
         f"<green>Commit info:</green>\n\n<yellow><bold>{commit_message}</bold></yellow>"
     )
-    repo.git.commit("--amend", "-m", commit_message)
-    logger.info("<green>Changes committed. All done!</green>")
-    return True
+    try:
+        # If executing inside of crontab, don't sign commits (since we can't access GPG keys)
+        if os.getenv(RUNNING_INSIDE_CRONTAB_ENV_VAR, "0") == "1":
+            logger.info("Running inside of crontab. Not signing commits.")
+            repo.git.commit("--amend", "-m", commit_message, "--no-gpg-sign")
+        else:
+            logger.info("Running outside of crontab. Signing commits (if that is configured in your gitconfig)!")
+            repo.git.commit("--amend", "-m", commit_message)
+
+        logger.info("<green>Changes committed. All done!</green>")
+        return True
+    except git.GitCommandError as e:
+        logger.error(f"Failed to commit changes: {e!s}")
+        logger.error(f"Git command failed with exit code {e.status}")
+        logger.error(f"Git stderr: {e.stderr}")
+        exit(1)
 
 def get_deleted_playlists(
     repo: git.Repo,
@@ -441,43 +467,47 @@ def maybe_git_push(
             cleanup_repo()
             exit(1)
 
-    try:
-        logger.info("Pushing changes to remote...")
-        if repo.head.is_detached:
-            logger.error(
-                "Cannot push: HEAD is in a detached state. Please checkout a branch first."
-            )
-            cleanup_repo()
-            exit(1)
-
-        if not repo.remotes.origin.url.startswith("git@"):
-            logger.error(
-                "Only SSH URLs are supported for pushing to remote repositories."
-            )
-            cleanup_repo()
-            exit(1)
+    if not repo.remotes.origin.url.startswith("git@"):
+        logger.error(
+            "Only SSH URLs are supported for pushing to remote repositories."
+        )
+        cleanup_repo()
+        exit(1)
         
+    logger.info("Pushing changes to remote...")
+    if repo.head and repo.head.is_detached:
+        logger.error(
+            "Cannot push: HEAD is in a detached state. Please checkout a branch first."
+        )
+        cleanup_repo()
+        exit(1)
+
+    # Use SSH key 
+    ssh_key_path = Path(config.ssh_key_path).expanduser()
+    logger.info(f"Using SSH key at: {ssh_key_path}")
+    if not ssh_key_path.exists():
+        logger.error(f"SSH key does not exist where the config file says it should: {ssh_key_path}")
+        cleanup_repo()
+        exit(1)
+    ssh_cmd = f"ssh -i {ssh_key_path}"
+    try:
         # If there are unpulled changes, pull them first
-        if repo.remotes.origin.fetch():
-            logger.info("Pulling changes from remote...")
-            try:
-                repo.remotes.origin.pull()
-            except git.GitCommandError as e:
-                logger.error(f"Failed to pull changes: {e!s}")
-                logger.error(f"Git command failed with exit code {e.status}")
-                logger.error(f"Git stderr: {e.stderr}")
-                cleanup_repo()
-                exit(1)
+        logger.info("Fetching changes from remote...")
+        with repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
+            fetch_result = repo.remotes.origin.fetch()
+            if len(fetch_result) > 0:
+                logger.info("Changes in upstream detected. Pulling changes from remote...")
+                try:
+                    repo.remotes.origin.pull()
+                except git.GitCommandError as e:
+                    logger.error(f"Failed to pull changes: {e!s}")
+                    logger.error(f"Git command failed with exit code {e.status}")
+                    logger.error(f"Git stderr: {e.stderr}")
+                    cleanup_repo()
+                    exit(1)
 
-        # Use SSH key 
-        logger.info(f"Using SSH key at: {config.ssh_key_path}")
-        ssh_key_path = Path(config.ssh_key_path).expanduser()
-        if not ssh_key_path.exists():
-            logger.error(f"SSH key does not exist where the config file says it should: {ssh_key_path}")
-            cleanup_repo()
-            exit(1)
 
-        ssh_cmd = f"ssh -i {ssh_key_path}"
+
         with repo.git.custom_environment(GIT_SSH_COMMAND=ssh_cmd):
             repo.remotes.origin.push()
 
@@ -504,3 +534,6 @@ def maybe_git_push(
             if config.ssh_key_path:
                 logger.error(f"Using SSH key at: {config.ssh_key_path}")
         logger.error(f"[red]{error_msg}[/red]")
+    except Exception as e:
+        logger.error(f"<red>An error occurred: {e}</red>")
+        exit(1)

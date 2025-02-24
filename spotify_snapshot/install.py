@@ -41,6 +41,7 @@ def get_spotify_snapshot_executable_path() -> str:
 
 
 CRONTAB_COMMENT = "spotify-snapshot"
+RUNNING_INSIDE_CRONTAB_ENV_VAR = "RUNNING_INSIDE_CRONTAB"
 
 
 def get_crontab_entries(cron: CronTab) -> list[CronItem] | None:
@@ -68,16 +69,17 @@ def install_crontab_entry(interval_hours: int = 8) -> None:
 
     # Create new job that runs every interval_hours
     job = cron.new(
-        command=command,
+        command=f"{RUNNING_INSIDE_CRONTAB_ENV_VAR}=1 {command}",
         comment=CRONTAB_COMMENT,
     )
 
     # Set it to run every interval_hours
-    job.hour.every(interval_hours)
+    # job.hour.every(interval_hours)
+    job.minute.every(4)
     # Save the config
     cron.write()
     logger.info(
-        f"<green>✓</green> Installed cron job to run every {interval_hours} hours"
+        f"<green>✓</green> Installed cron job to run every 4 minutes"
     )
 
 

@@ -71,7 +71,7 @@ class SpotifyCredentialsManager:
         logger.info("To get these credentials:")
         logger.info("1. Go to https://developer.spotify.com/dashboard")
         logger.info("2. Create a new application")
-        logger.info("3. Set the callback URL to http://localhost:8000/callback")
+        logger.info("3. Set the callback URL to http://127.0.0.1:8000/callback")
         logger.info("4. Copy the Client ID and Client Secret\n")
 
         client_id = Prompt.ask("Enter your Spotify Client ID")
@@ -231,6 +231,7 @@ def get_tracks_from_playlist(
 
 def get_saved_albums(sp_client: spotipy.Spotify) -> dict:
     logger = get_colorized_logger()
+    logger.info("<green>Fetching saved albums</green>...")
     saved_albums = {}
     results = sp_client.current_user_saved_albums(API_REQUEST_LIMIT)
 
@@ -253,6 +254,9 @@ def get_saved_albums(sp_client: spotipy.Spotify) -> dict:
 def get_playlists(sp_client: spotipy.Spotify) -> dict[str, SpotifyPlaylist]:
     logger = get_colorized_logger()
     saved_playlists = {}
+    logger.info(
+        f"<green>Fetching playlists</green>..."
+    )
     results: SpotifyPlaylistsResponse = sp_client.current_user_playlists(
         API_REQUEST_LIMIT
     )
@@ -298,11 +302,11 @@ def create_spotify_client() -> spotipy.Spotify:
 
     creds = SpotifyCredentialsManager.get_credentials()
 
-    # cache_path = get_spotify_auth_cache_path()
-    # if not cache_path.exists():
-    #     logger.info(f"<green>Creating auth cache file at {cache_path}</green>")
-    #     cache_path.parent.mkdir(parents=True, exist_ok=True)
-    # cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=str(cache_path))
+    cache_path = get_spotify_auth_cache_path()
+    if not cache_path.exists():
+        logger.info(f"<green>Creating auth cache file at {cache_path}</green>")
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_handler = spotipy.cache_handler.CacheFileHandler(cache_path=str(cache_path))
 
     try:
         client = spotipy.Spotify(
@@ -310,15 +314,17 @@ def create_spotify_client() -> spotipy.Spotify:
                 client_id=creds.client_id,
                 client_secret=creds.client_secret,
                 redirect_uri="http://127.0.0.1:8000/callback",
-                # cache_handler=cache_handler,
+                cache_handler=cache_handler,
                 scope=[
                     "user-library-read",
                     "playlist-read-private",
                     "playlist-read-collaborative",
                 ],
-            )
+            ),
+            backoff_factor=0.8
         )
     except Exception as e:
+        logger.error(f"<red>Error creating Spotify client: {e}</red>")
         raise InvalidSpotifyCredentialsError(f"Invalid credentials: {e}")
 
     # Spotipy does not set the permissions on the cache file correctly, so we do it manually

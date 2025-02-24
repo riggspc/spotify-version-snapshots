@@ -371,7 +371,7 @@ In order to use this tool, you'll need to set up a Spotify developer app and cop
 ![Spotify Developer Dashboard](img/spotify-app-setup.png)
 
 1. Create a `Spotify` app at https://developer.spotify.com/dashboard/applications
-2. Set the callback URL to `http://localhost:8000/callback`
+2. Set the callback URL to `http://127.0.0.1:8000/callback`
 3. Select the "Web API" checkbox
 4. Copy the client ID and client secret
 5. Set them as environment variables in your shell profile:
